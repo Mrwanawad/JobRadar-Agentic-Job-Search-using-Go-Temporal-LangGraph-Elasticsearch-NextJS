@@ -72,6 +72,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/WORKFLOWS.md](doc
 | `orchestrator/` | Go: Temporal workflows, ingestion worker, HTTP gateway, migrations, schedules |
 | `jobradar/agent/` | Python agent worker: LangGraph graphs, Elasticsearch search, Temporal activities |
 | `jobradar/` | v0.1 single-machine CLI (fetch, score, draft, send) that the platform grew from |
+| `jobradar/mcp_server.py` | MCP server: run, search and approve from Claude or any MCP client |
 | `proto/` | Protobuf contract shared by Go and Python (`buf generate`) |
 | `apps/web/` | Next.js 16 demo site for Cloudflare Workers ([README](apps/web/README.md)) |
 | `deploy/` | Docker Compose stack, Dockerfiles, Cloudflare Tunnel config |
@@ -110,6 +111,28 @@ curl -s -H "$H" localhost:8080/v1/profiles/demo-…/results       # ranked jobs 
 
 Then the web app: see [apps/web/README.md](apps/web/README.md).
 
+## MCP server
+
+Drive JobRadar from Claude Code, Claude Desktop or any MCP client. The server is a thin
+client over the gateway API, so it gets the gateway's checks too (demo drafts can never be
+approved, duplicate runs return 409).
+
+| Tool | What it does |
+|---|---|
+| `start_run(profile_id)` | Start a radar run, returns `workflow_id` |
+| `get_run(workflow_id)` | Status and live progress |
+| `get_summary(profile_id)` | Pipeline counts and recent runs |
+| `search_jobs(profile_id, query, min_score, limit)` | Scored jobs with reasons and red flags |
+| `get_outbox(profile_id, status)` | Drafted applications with full text |
+| `approve_draft(profile_id, outbox_id, approve, workflow_id, edited_body)` | Approve or reject a draft (signals the open run) |
+
+```bash
+claude mcp add jobradar -e GATEWAY_TOKEN=dev-token-change-me --   uv run --directory /path/to/repo --extra mcp jobradar-mcp
+```
+
+Read-only tools carry `readOnlyHint`; the server instructions tell the model to get the
+user's explicit yes before approving a draft.
+
 ## Tests
 
 ```bash
@@ -139,7 +162,7 @@ anything is sent. See `uv run jobradar --help` and `profile.example.yaml`.
 
 ## Status
 
-Backend and web app work end to end locally. Not yet deployed. Next: MCP server, an eval set
+Backend and web app work end to end locally. Not yet deployed. Next: an eval set
 with a CI quality gate, and deployment to Oracle Cloud (k3s, Helm, Argo CD) behind Cloudflare.
 
 ## License

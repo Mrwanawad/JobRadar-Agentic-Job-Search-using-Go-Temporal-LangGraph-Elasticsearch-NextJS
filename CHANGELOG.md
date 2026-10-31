@@ -5,6 +5,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- MCP server (`jobradar-mcp`, stdio): `start_run`, `get_run`, `get_summary`, `search_jobs`,
+  `get_outbox`, `approve_draft`, as a thin client over the gateway API.
 - `apps/web`: Next.js 16 demo site on Cloudflare Workers (OpenNext). GitHub and Google
   sign-in, Turnstile, one demo run per account (D1), CV text extracted in the browser with
   pdf.js, live run progress over Server-Sent Events, ranked results with drafts.

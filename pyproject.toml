@@ -31,9 +31,13 @@ platform = [
     "opentelemetry-exporter-otlp-proto-grpc>=1.38",
     "opentelemetry-instrumentation-httpx>=0.59b0",
 ]
+mcp = [
+    "mcp>=2.3,<3",
+]
 
 [project.scripts]
 jobradar = "jobradar.cli:app"
+jobradar-mcp = "jobradar.mcp_server:main"
 
 [dependency-groups]
 dev = ["pytest>=8", "respx>=0.21", "ruff>=0.6"]

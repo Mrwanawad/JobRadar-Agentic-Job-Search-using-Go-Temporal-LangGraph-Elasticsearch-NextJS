@@ -38,6 +38,7 @@ flowchart TB
 | gateway (`orchestrator/internal/gateway`) | Go | HTTP API, demo quota per owner hash | Single entry point to Temporal and Postgres |
 | orchestrator-worker | Go | `jobradar-ingest` task queue: workflows, fetch, bookkeeping | Many concurrent HTTP fetches; cheap goroutines |
 | agent-worker (`jobradar/agent`) | Python | `jobradar-agent` task queue: prefilter, index, match, score, draft | LangGraph, fastembed and the v0.1 rules live in Python |
+| MCP server (`jobradar/mcp_server.py`) | Python | nothing (gateway client) | Lets Claude or any MCP client start runs, search results and approve drafts |
 | Temporal | | workflow state, timers, retries, schedules | Durable execution; see [ADR 0001](adr/0001-temporal-for-orchestration.md) |
 | Postgres | | jobs, profiles, runs, matches, outbox | Source of truth |
 | Elasticsearch | | `jobs-v1` index (BM25 fields + 384-d vector) | Hybrid retrieval |
