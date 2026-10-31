@@ -12,7 +12,7 @@
     "db:migrate:local": "wrangler d1 migrations apply jobradar-web --local",
     "db:migrate": "wrangler d1 migrations apply jobradar-web --remote",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "postinstall": "node scripts/copy-pdf-worker.mjs"
   },
   "dependencies": {
