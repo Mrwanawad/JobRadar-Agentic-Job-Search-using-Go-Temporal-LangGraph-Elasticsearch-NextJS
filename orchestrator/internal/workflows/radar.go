@@ -6,6 +6,7 @@ package workflows
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.temporal.io/sdk/temporal"
@@ -332,7 +333,9 @@ func shortErr(err error) string {
 	var appErr *temporal.ApplicationError
 	if errors.As(err, &appErr) {
 		s = appErr.Message()
-		if t := appErr.Type(); t != "" {
+		// Our own types (DraftRejected, QuotaExhausted, SourceGone) say what went wrong;
+		// generic Go type names ("Error", "*url.Error") only add noise.
+		if t := appErr.Type(); t != "" && t != "Error" && !strings.ContainsAny(t, "*.") {
 			s = t + ": " + s
 		}
 	} else {
