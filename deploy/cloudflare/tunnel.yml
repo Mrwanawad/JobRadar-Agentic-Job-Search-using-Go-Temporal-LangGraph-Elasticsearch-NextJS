@@ -1,0 +1,18 @@
+# cloudflared on the Oracle VM: exposes only the gateway, never Temporal/Postgres/ES.
+# Setup:
+#   cloudflared tunnel login
+#   cloudflared tunnel create jobradar
+#   cloudflared tunnel route dns jobradar gateway.<your-domain>
+#   cloudflared tunnel --config deploy/cloudflare/tunnel.yml run
+# Protect the hostname with a Cloudflare Access service-token policy and give the worker
+# CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET; the gateway bearer token stays as a second lock.
+tunnel: jobradar
+credentials-file: /etc/cloudflared/jobradar.json
+ingress:
+  - hostname: gateway.example.com
+    service: http://localhost:8080
+    originRequest:
+      # SSE progress streams stay open for the whole run.
+      keepAliveTimeout: 10m
+      disableChunkedEncoding: false
+  - service: http_status:404

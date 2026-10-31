@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	userAgent    = "jobradar/0.2 (+https://github.com/Mrwanawad/JobRadar)"
+	userAgent    = "jobradar/0.2 (+https://github.com/Mrwanawad/JobRadar-Agentic-Job-Search-using-Go-Temporal-LangGraph-Elasticsearch-NextJS)"
 	maxBodyBytes = 64 << 20
 
 	remoteOKURL  = "https://remoteok.com/api"

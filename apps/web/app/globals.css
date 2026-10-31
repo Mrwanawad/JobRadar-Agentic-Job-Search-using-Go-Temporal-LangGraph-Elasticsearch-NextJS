@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fbfaf7;
+  --surface: #ffffff;
+  --foreground: #16181d;
+  --muted: #5d6470;
+  --line: #e4e1da;
+  --accent: #0f766e;
+  --accent-ink: #ffffff;
+  --warn: #b45309;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0e1013;
+    --surface: #161a1f;
+    --foreground: #e8e6e1;
+    --muted: #9aa2ad;
+    --line: #262b33;
+    --accent: #2dd4bf;
+    --accent-ink: #062a27;
+    --warn: #f59e0b;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-warn: var(--warn);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+@utility field {
+  @apply w-full rounded-md border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-accent text-accent-ink hover:opacity-90;
+}
+@utility btn-ghost {
+  @apply btn border border-line bg-surface hover:border-accent;
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jobradar-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "jobradar-web" }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jobradar-web",
+      // `npx wrangler d1 create jobradar-web` prints the real id.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "APP_URL": "http://localhost:3000",
+    "REPO_URL": "https://github.com/Mrwanawad/JobRadar-Agentic-Job-Search-using-Go-Temporal-LangGraph-Elasticsearch-NextJS",
+    // Cloudflare's always-pass test site key; replace in production.
+    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA"
+  },
+  "observability": { "enabled": true }
+  // Secrets (wrangler secret put): SESSION_SECRET, GATEWAY_URL, GATEWAY_TOKEN,
+  // GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+  // TURNSTILE_SECRET_KEY, optional CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET.
+}
