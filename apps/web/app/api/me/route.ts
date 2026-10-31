@@ -9,5 +9,6 @@ export async function GET() {
     user,
     run: run ? { workflow_id: run.workflow_id, created_at: run.created_at } : null,
     turnstile_site_key: e.TURNSTILE_SITE_KEY,
+    dev_login: e.DEV_LOGIN === "1",
   });
 }

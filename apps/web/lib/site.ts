@@ -5,6 +5,7 @@ export type Me = {
   user: { id: string; name: string; avatar?: string } | null;
   run: { workflow_id: string; created_at: string } | null;
   turnstile_site_key: string;
+  dev_login?: boolean;
 };
 
 export async function fetchMe(): Promise<Me> {

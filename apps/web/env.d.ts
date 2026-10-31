@@ -13,5 +13,6 @@ interface CloudflareEnv {
   GOOGLE_CLIENT_SECRET: string;
   TURNSTILE_SECRET_KEY: string;
   CF_ACCESS_CLIENT_ID?: string;
+  DEV_LOGIN?: string; // "1" enables /api/auth/dev on localhost only
   CF_ACCESS_CLIENT_SECRET?: string;
 }
