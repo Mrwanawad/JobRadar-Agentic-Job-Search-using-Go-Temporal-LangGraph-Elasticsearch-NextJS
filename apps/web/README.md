@@ -32,12 +32,12 @@ Needs the compose stack running (`docker compose -f deploy/compose/compose.yaml 
 npm install
 cp .dev.vars.example .dev.vars        # set SESSION_SECRET (32+ chars) and OAuth apps
 npm run db:migrate:local
-npm run dev                           # http://localhost:3000
+npm run dev                           # http://localhost:3001 (3000 is Grafana)
 npm run preview                       # real Worker build on http://localhost:8787
 ```
 
-OAuth callback URLs: `http://localhost:3000/api/auth/github/callback` and
-`http://localhost:3000/api/auth/google/callback` (swap the host for production).
+OAuth callback URLs: `http://localhost:3001/api/auth/github/callback` and
+`http://localhost:3001/api/auth/google/callback` (swap the host for production).
 The Turnstile keys in the examples are Cloudflare's always-pass test keys.
 
 ## Deploy
