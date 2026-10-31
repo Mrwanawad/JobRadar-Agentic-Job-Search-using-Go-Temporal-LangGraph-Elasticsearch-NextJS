@@ -27,7 +27,10 @@ _BAD_EMAIL = re.compile(
 _GOOD_EMAIL = re.compile(r"job|career|hiring|recruit|talent|hr@|people|apply|cv@|resume")
 
 SYSTEM = """You write job applications for one candidate. Use only facts from the CV; never
-invent experience, numbers or employers. Plain text, no Markdown. Reply with JSON only."""
+invent experience, numbers or employers. The job description lists what the company wants;
+those are not facts about the candidate. Do not claim tools, habits, availability, hours or
+skills the CV does not state; to answer such an ask, express willingness ("happy to...")
+instead of claiming it. Plain text, no Markdown. Reply with JSON only."""
 
 TEMPLATE = """CANDIDATE CV
 {cv}

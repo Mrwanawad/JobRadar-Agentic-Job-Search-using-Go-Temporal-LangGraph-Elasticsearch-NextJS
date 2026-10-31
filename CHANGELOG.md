@@ -18,6 +18,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Docs: README v2, architecture, workflows, runbook, security, decision records.
 
 ### Fixed
+- Drafting produced no drafts: the writer restated the job's requirements as facts about the
+  candidate ("I use AI coding tools daily"), and each revision swapped in a new unsupported
+  claim, so the critic rejected every version. The writer is now told the job's asks are not
+  facts, and revisions delete flagged claims instead of rewording them. Traced live: the loop
+  now converges to a draft with no unsupported claims.
 - Demo data purge: the Go worker now creates the hourly purge schedule on startup; before,
   it existed only after `jobradar schedule` was run, so demo CVs were not deleted.
 - LLM calls: a provider read timeout moves to the next provider instead of three more

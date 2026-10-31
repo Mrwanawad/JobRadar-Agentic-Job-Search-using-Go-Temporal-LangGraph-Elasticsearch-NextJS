@@ -239,7 +239,11 @@ def writer_graph(llm: LLM, cv: str, job: Mapping[str, Any], channel: str) -> Any
 
     def revise(s: WriteState) -> WriteState:
         c = s["critique"]
-        notes = [f"Remove or fix (not in the CV): {f}" for f in c["fabrications"]] + c["issues"]
+        # Unsupported claims are deleted, not reworded: rewording tends to swap one
+        # unsupported claim for another and the loop never converges.
+        notes = [
+            f"Delete this claim; the CV does not support it: {f}" for f in c["fabrications"]
+        ] + c["issues"]
         return {
             "messages": [
                 *s["messages"],
@@ -248,6 +252,7 @@ def writer_graph(llm: LLM, cv: str, job: Mapping[str, Any], channel: str) -> Any
                     "role": "user",
                     "content": "Revise the draft. Apply every point:\n- "
                     + "\n- ".join(notes)
+                    + "\nAdd no new claims about the candidate that the CV does not state."
                     + "\nReturn the same JSON shape.",
                 },
             ],

@@ -111,7 +111,10 @@ def test_write_revises_fabrication(profile):
     )
     _, body, _, revisions = graphs.write(llm, profile, "cv", JOB, "manual")
     assert "Google" not in body and revisions == 1
-    assert "not in the CV" in llm.prompts[2][-1]["content"]
+    assert (
+        "Delete this claim; the CV does not support it: led a team of 50 at Google"
+        in (llm.prompts[2][-1]["content"])
+    )
 
 
 def test_write_keeps_best_when_revisions_run_out(profile):
