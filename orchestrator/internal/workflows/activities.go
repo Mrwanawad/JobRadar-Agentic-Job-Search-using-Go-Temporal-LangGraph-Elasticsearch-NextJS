@@ -45,12 +45,13 @@ func (a *Activities) FetchSource(ctx context.Context, in *pb.FetchSourceInput) (
 	key := src.GetKind() + ":" + src.GetSlug()
 	res := &pb.FetchSourceResult{Source: key}
 
-	fresh, err := a.Store.FetchedSince(ctx, key, time.Now().Add(-FetchCacheTTL))
+	fresh, cached, err := a.Store.FetchedSince(ctx, key, time.Now().Add(-FetchCacheTTL))
 	if err != nil {
 		return nil, err
 	}
 	if fresh {
 		activity.GetLogger(ctx).Info("fetch cache hit", "source", key)
+		res.Fetched = int32(cached) // nothing new inserted; the jobs are already stored
 		return res, nil
 	}
 
@@ -83,7 +84,7 @@ type RunRecord struct {
 }
 
 func (a *Activities) RecordRunStart(ctx context.Context, r RunRecord) error {
-	return a.Store.StartRun(ctx, r.WorkflowID, r.ProfileID, r.Mode)
+	return a.Store.RunStarted(ctx, r.WorkflowID, r.ProfileID, r.Mode)
 }
 
 func (a *Activities) RecordRunFinish(ctx context.Context, r RunRecord) error {

@@ -79,6 +79,7 @@ PRESETS: dict[str, dict[str, Any]] = {
 
 # Waits longer than this mean "quota gone for now": switch provider instead of sleeping.
 MAX_WAIT_S = 65.0
+READ_TIMEOUT_S = 240.0
 # A daily-quota 429 parks that key this long before it is tried again.
 DAILY_PARK_S = 3600.0
 
@@ -204,7 +205,10 @@ class LLMClient:
             raise LLMError(
                 "no LLM provider configured: set GEMINI_API_KEY (or another *_API_KEY) in .env"
             )
-        self.http = http or httpx.Client(timeout=120)
+        # Free reasoning models can take minutes for a long reply; connecting should not.
+        self.http = http or httpx.Client(
+            timeout=httpx.Timeout(connect=10, read=READ_TIMEOUT_S, write=30, pool=10)
+        )
         self.sleep = sleep
         self.clock = clock
 
@@ -333,6 +337,11 @@ class LLMClient:
                     self.sleep(wait)
                 try:
                     r = self._post(p, body)
+                except httpx.TimeoutException as e:
+                    # A provider this slow will likely be slow again: move on instead of
+                    # spending up to three more full read timeouts on it.
+                    errors.append(f"{p.name}: {type(e).__name__}")
+                    break
                 except httpx.HTTPError as e:
                     errors.append(f"{p.name}: {type(e).__name__}")
                     self.sleep(2**attempt)

@@ -92,12 +92,16 @@ func (s *Store) UpsertJobs(ctx context.Context, jobs []ingest.Job) (int, error) 
 }
 
 // FetchedSince reports whether a source was fetched after t (the shared fetch cache).
-func (s *Store) FetchedSince(ctx context.Context, key string, t time.Time) (bool, error) {
-	var ok bool
+// FetchedSince reports whether the source was fetched after t, and how many jobs that
+// fetch returned (a cache hit still counts toward the run's "jobs fetched").
+func (s *Store) FetchedSince(ctx context.Context, key string, t time.Time) (bool, int, error) {
+	var n int
 	err := s.Pool.QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM source_fetches WHERE source_key=$1 AND fetched_at > $2)`,
-		key, t).Scan(&ok)
-	return ok, err
+		`SELECT fetched FROM source_fetches WHERE source_key=$1 AND fetched_at > $2`, key, t).Scan(&n)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, 0, nil
+	}
+	return err == nil, n, err
 }
 
 func (s *Store) RecordFetch(ctx context.Context, key string, fetched, inserted int) error {
@@ -138,6 +142,16 @@ func (s *Store) StartRun(ctx context.Context, workflowID, profileID, mode string
 	_, err := s.Pool.Exec(ctx, `
 		INSERT INTO runs (workflow_id, profile_id, mode) VALUES ($1,$2,$3)
 		ON CONFLICT (workflow_id) DO NOTHING`, workflowID, profileID, mode)
+	return err
+}
+
+// RunStarted marks the run as running when the workflow itself begins. It also resets a
+// row left "failed" by an earlier start attempt that never reached Temporal.
+func (s *Store) RunStarted(ctx context.Context, workflowID, profileID, mode string) error {
+	_, err := s.Pool.Exec(ctx, `
+		INSERT INTO runs (workflow_id, profile_id, mode) VALUES ($1,$2,$3)
+		ON CONFLICT (workflow_id) DO UPDATE SET status='running', finished_at=NULL`,
+		workflowID, profileID, mode)
 	return err
 }
 

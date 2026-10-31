@@ -41,6 +41,15 @@ Free tiers are small (Gemini keys share a per-project daily cap; OpenRouter `:fr
 scored. Add keys (`GEMINI_API_KEY_2`, another provider in `LLM_PROVIDERS`) to `.env` and
 `docker compose up -d agent-worker`. Check keys with `uv run python scripts/llm_smoke.py`.
 
+**Every LLM call fails at once with 429.** Gemini free keys share a per-project daily cap;
+when both are spent, calls fall through to OpenRouter's free model (50 requests a day,
+15-70 s per call). A provider that times out (240 s read timeout) is skipped for that call
+rather than retried three times.
+
+**A visitor's run did not start** ("Your profile is saved; submit again to retry"). The
+gateway created the profile but could not reach Temporal. The web app keeps the profile; the
+next submit starts the run on it.
+
 **`activity Heartbeat timeout` on ScoreJob or DraftApplication.**
 The agent worker heartbeats from a side thread during LLM calls. If this appears, the worker
 process is stuck or dead: check `docker compose logs agent-worker` and restart it. Temporal
@@ -70,6 +79,7 @@ docker compose -f deploy/compose/compose.yaml run --rm orchestrator-worker sched
 ```
 
 Creates the daily radar (09:00) and hourly purge schedules; see [WORKFLOWS.md](WORKFLOWS.md#schedules).
+The purge schedule is also created automatically when the Go worker starts.
 
 ## Web app
 

@@ -36,6 +36,12 @@ stateDiagram-v2
 | Score | 10 min, 4 attempts, 2 min heartbeat, 3 in flight | Per-job error recorded; `QuotaExhausted` stops scoring |
 | Draft | 10 min, 3 attempts, 2 in flight, only scores ≥ `MinDraftScore` | Per-job error recorded |
 
+A source fetched within the cache TTL is not fetched again; it reports the job count of its
+last fetch and inserts nothing.
+
+If the gateway cannot start a workflow, it marks the run row `failed`; a retried start of the
+same demo id resets the row to `running` when the workflow begins (`RecordRunStart`).
+
 Bookkeeping (`RecordRunFinish`) runs in a disconnected context, so the run row is closed
 even if the pipeline failed or the workflow was cancelled.
 
@@ -79,7 +85,9 @@ hour.
 
 ## Schedules
 
-`jobradar schedule <personal-profile-id>` creates or replaces two Temporal Schedules:
+The Go worker creates the hourly purge schedule on startup if it is missing, so demo data
+expires on any stack. `jobradar schedule <personal-profile-id>` creates or replaces both
+schedules:
 
 | Schedule | Spec | Overlap |
 |---|---|---|

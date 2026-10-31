@@ -219,3 +219,22 @@ def test_env_plain_key_ignored_when_numbered_keys_exist(env):
     env.setenv("GEMINI_API_KEY", "stale")
     env.setenv("GEMINI_API_KEY_1", "g1")
     assert [p.api_key for p in providers_from_env()] == ["g1"]
+
+
+@respx.mock
+def test_read_timeout_moves_on_without_retrying_same_provider():
+    k1 = key1().mock(side_effect=httpx.ReadTimeout("slow"))
+    key2().mock(return_value=ok("k2"))
+    ft = FakeTime()
+    assert make(ft).chat(MSG).provider == "gemini#2"
+    assert k1.call_count == 1
+    assert ft.slept == []
+
+
+@respx.mock
+def test_connect_error_still_retries_with_backoff():
+    k1 = key1().mock(side_effect=[httpx.ConnectError("dns"), ok("back")])
+    ft = FakeTime()
+    assert make(ft).chat(MSG).text == "back"
+    assert k1.call_count == 2
+    assert ft.slept == [1]

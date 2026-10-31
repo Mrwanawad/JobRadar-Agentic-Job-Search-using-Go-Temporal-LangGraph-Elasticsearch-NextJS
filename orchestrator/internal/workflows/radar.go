@@ -325,16 +325,21 @@ func isType(err error, typ string) bool {
 	return errors.As(err, &appErr) && appErr.Type() == typ
 }
 
-// shortErr keeps the innermost cause: Temporal wraps activity errors several layers deep.
+// shortErr reports the activity's own error: Temporal wraps it several layers deep, and its
+// innermost cause is often a library exception (a Python ValueError under DraftRejected).
 func shortErr(err error) string {
-	for {
-		next := errors.Unwrap(err)
-		if next == nil {
-			break
-		}
-		err = next
-	}
 	s := err.Error()
+	var appErr *temporal.ApplicationError
+	if errors.As(err, &appErr) {
+		s = appErr.Message()
+		if t := appErr.Type(); t != "" {
+			s = t + ": " + s
+		}
+	} else {
+		for next := errors.Unwrap(err); next != nil; next = errors.Unwrap(next) {
+			s = next.Error()
+		}
+	}
 	if len(s) > 200 {
 		s = s[:200]
 	}

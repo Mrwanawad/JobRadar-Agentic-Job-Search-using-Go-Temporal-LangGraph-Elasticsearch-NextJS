@@ -179,6 +179,13 @@ func (s *Server) startRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
+		// Never reached Temporal: close the row so it does not show as running forever.
+		// A retry of the same demo id resets it when the workflow starts.
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
+		defer cancel()
+		if ferr := s.Store.FinishRun(ctx, id, "failed", []byte(`{}`)); ferr != nil {
+			s.Log.Error("mark failed start", "workflow_id", id, "error", ferr)
+		}
 		s.fail(w, err)
 		return
 	}

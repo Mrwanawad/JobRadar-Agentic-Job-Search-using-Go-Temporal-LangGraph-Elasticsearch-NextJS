@@ -17,7 +17,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - CI `web` job: lint, typecheck and a full Cloudflare Worker build.
 - Docs: README v2, architecture, workflows, runbook, security, decision records.
 
+### Fixed
+- Demo data purge: the Go worker now creates the hourly purge schedule on startup; before,
+  it existed only after `jobradar schedule` was run, so demo CVs were not deleted.
+- LLM calls: a provider read timeout moves to the next provider instead of three more
+  attempts on the same one (a slow free model turned one scoring call into 6-9 minutes);
+  read timeout raised to 240 s for slow reasoning models.
+- A failed workflow start no longer burns a visitor's demo: the profile is kept and the next
+  submit retries the start. The gateway marks failed starts, so runs no longer show as
+  running forever.
+- Run errors show the activity's own error (`DraftRejected: ...`) instead of the innermost
+  library exception (`ValueError`).
+- Fetch cache hits report the cached job count instead of 0.
+- Agent image: embedding model download moved above the source copy, so code changes no
+  longer re-download 130 MB.
+- `npm run preview` serves with the matching `APP_URL`.
+
 ### Changed
+- Localhost-only test sign-in for the web app (`DEV_LOGIN=1`).
 - Demo title matching: all words of a target title in any order, engineer/developer and
   ML/machine learning equivalent. Prefilter recall on the eval set 0.52 -> 0.95, precision 1.00.
 - Repository renamed to `JobRadar-Agentic-Job-Search-using-Go-Temporal-LangGraph-Elasticsearch-NextJS`.

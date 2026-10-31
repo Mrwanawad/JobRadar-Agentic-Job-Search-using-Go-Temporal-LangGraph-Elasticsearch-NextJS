@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "preview": "opennextjs-cloudflare build && wrangler dev --port 8787 --var APP_URL:http://localhost:8787",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "db:migrate:local": "wrangler d1 migrations apply jobradar-web --local",
     "db:migrate": "wrangler d1 migrations apply jobradar-web --remote",

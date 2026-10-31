@@ -40,6 +40,10 @@ OAuth callback URLs: `http://localhost:3001/api/auth/github/callback` and
 `http://localhost:3001/api/auth/google/callback` (swap the host for production).
 The Turnstile keys in the examples are Cloudflare's always-pass test keys.
 
+No OAuth apps yet? With `DEV_LOGIN=1` in `.dev.vars` the sign-in page shows **Local test
+sign-in** (`/api/auth/dev`): a fresh test account per click, served only on localhost.
+Production never sets `DEV_LOGIN`.
+
 ## Deploy
 
 ```

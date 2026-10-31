@@ -99,6 +99,12 @@ export default function DemoPage() {
         <p className="mt-1 text-sm text-muted">
           Signed in as {me.user.name}. One run per account; results are deleted after 24 hours.
         </p>
+        {me.pending && (
+          <p className="mt-2 text-sm text-warn">
+            Your profile is saved but the run did not start last time. Submit again to retry; the
+            saved profile is used.
+          </p>
+        )}
       </div>
 
       <section className="grid gap-4 sm:grid-cols-2">

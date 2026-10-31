@@ -7,7 +7,9 @@ export async function GET() {
   const run = user && (await findRun(user.id));
   return Response.json({
     user,
-    run: run ? { workflow_id: run.workflow_id, created_at: run.created_at } : null,
+    run: run?.workflow_id ? { workflow_id: run.workflow_id, created_at: run.created_at } : null,
+    // Profile saved but the workflow failed to start: the next submit retries the start.
+    pending: !!run && !run.workflow_id,
     turnstile_site_key: e.TURNSTILE_SITE_KEY,
     dev_login: e.DEV_LOGIN === "1",
   });

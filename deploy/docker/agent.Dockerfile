@@ -8,11 +8,13 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --extra platform --no-install-project
+# Bake the embedding model into the image: no download at runtime, works offline. It sits
+# above the source COPY so code changes reuse this layer instead of re-downloading 130 MB.
+# Keep the model name in step with jobradar.agent.search.LocalEmbedder.
+RUN /app/.venv/bin/python -c "from fastembed import TextEmbedding; list(TextEmbedding('BAAI/bge-small-en-v1.5', cache_dir='/app/models').embed(['warmup']))"
 COPY jobradar/ jobradar/
 COPY profile.example.yaml README.md ./
 RUN uv sync --locked --no-dev --extra platform
-# Bake the embedding model into the image: no download at runtime, works offline.
-RUN /app/.venv/bin/python -c "from jobradar.agent.search import LocalEmbedder; LocalEmbedder()(['warmup'])"
 
 RUN useradd --uid 10001 --no-create-home agent && chown -R agent /app/models
 USER agent

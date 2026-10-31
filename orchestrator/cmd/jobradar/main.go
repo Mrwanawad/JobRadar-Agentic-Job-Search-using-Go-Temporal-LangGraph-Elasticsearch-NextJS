@@ -81,6 +81,10 @@ func run(ctx context.Context, cmd string, args []string, log *slog.Logger) error
 
 	switch cmd {
 	case "worker":
+		// Demo CVs must expire even on a stack where nobody ran `schedule`.
+		if err := ensurePurgeSchedule(ctx, tc, log); err != nil {
+			return err
+		}
 		w := worker.New(tc, workflows.IngestQueue, worker.Options{})
 		w.RegisterWorkflow(workflows.RadarWorkflow)
 		w.RegisterWorkflow(workflows.PurgeWorkflow)
@@ -173,19 +177,7 @@ func ensureSchedules(ctx context.Context, tc client.Client, cfg config.Settings,
 				TaskQueue: workflows.IngestQueue,
 			},
 		},
-		{
-			ID:      "purge-demo-data",
-			Spec:    client.ScheduleSpec{Intervals: []client.ScheduleIntervalSpec{{Every: time.Hour}}},
-			Overlap: enumspb.SCHEDULE_OVERLAP_POLICY_SKIP,
-			Action: &client.ScheduleWorkflowAction{
-				ID:        "purge-demo-data",
-				Workflow:  workflows.PurgeWorkflow,
-				TaskQueue: workflows.IngestQueue,
-				RetryPolicy: &temporal.RetryPolicy{
-					MaximumAttempts: 3,
-				},
-			},
-		},
+		purgeSchedule,
 	}
 	for _, s := range specs {
 		h := tc.ScheduleClient().GetHandle(ctx, s.ID)
@@ -200,4 +192,31 @@ func ensureSchedules(ctx context.Context, tc client.Client, cfg config.Settings,
 		log.Info("schedule ready", "id", s.ID)
 	}
 	return nil
+}
+
+// purgeSchedule deletes expired demo profiles (CV text, matches, drafts) every hour.
+var purgeSchedule = client.ScheduleOptions{
+	ID:      "purge-demo-data",
+	Spec:    client.ScheduleSpec{Intervals: []client.ScheduleIntervalSpec{{Every: time.Hour}}},
+	Overlap: enumspb.SCHEDULE_OVERLAP_POLICY_SKIP,
+	Action: &client.ScheduleWorkflowAction{
+		ID:          "purge-demo-data",
+		Workflow:    workflows.PurgeWorkflow,
+		TaskQueue:   workflows.IngestQueue,
+		RetryPolicy: &temporal.RetryPolicy{MaximumAttempts: 3},
+	},
+}
+
+// ensurePurgeSchedule creates the purge schedule if it is missing. Safe to run from every
+// worker replica: an existing schedule is left as is.
+func ensurePurgeSchedule(ctx context.Context, tc client.Client, log *slog.Logger) error {
+	_, err := tc.ScheduleClient().Create(ctx, purgeSchedule)
+	if err == nil {
+		log.Info("schedule ready", "id", purgeSchedule.ID)
+		return nil
+	}
+	if errors.Is(err, temporal.ErrScheduleAlreadyRunning) {
+		return nil
+	}
+	return fmt.Errorf("schedule %s: %w", purgeSchedule.ID, err)
 }
