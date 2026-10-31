@@ -1,0 +1,43 @@
+name: evals
+
+# LLM screening eval against the labeled set in evals/. Spends LLM quota, so it runs on
+# demand and weekly, not on every push. Needs repo secrets GEMINI_API_KEY_1 and/or
+# OPENROUTER_API_KEY; without them the job is skipped.
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Postings to score (empty = all)"
+        required: false
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  screening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      GEMINI_API_KEY_1: ${{ secrets.GEMINI_API_KEY_1 }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      LLM_PROVIDERS: gemini,openrouter
+    steps:
+      - uses: actions/checkout@v4
+        if: env.GEMINI_API_KEY_1 != '' || env.OPENROUTER_API_KEY != ''
+      - uses: astral-sh/setup-uv@v6
+        if: env.GEMINI_API_KEY_1 != '' || env.OPENROUTER_API_KEY != ''
+      - name: Screening eval
+        if: env.GEMINI_API_KEY_1 != '' || env.OPENROUTER_API_KEY != ''
+        run: |
+          uv sync --locked --extra platform
+          uv run python -m evals.screening ${{ inputs.limit && format('--limit {0}', inputs.limit) || '' }}
+      - uses: actions/upload-artifact@v4
+        if: always() && (env.GEMINI_API_KEY_1 != '' || env.OPENROUTER_API_KEY != '')
+        with:
+          name: screening-report
+          path: evals/results/
+      - name: No LLM key configured
+        if: env.GEMINI_API_KEY_1 == '' && env.OPENROUTER_API_KEY == ''
+        run: echo "Set GEMINI_API_KEY_1 or OPENROUTER_API_KEY as a repo secret to run this eval."

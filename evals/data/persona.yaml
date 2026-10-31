@@ -1,0 +1,43 @@
+# Synthetic candidate used by every eval. Not a real person.
+form:
+  name: Sam Rivera
+  base: Cairo, Egypt
+  target_titles:
+    - AI Engineer
+    - Machine Learning Engineer
+    - ML Engineer
+    - Applied AI Engineer
+    - Forward Deployed Engineer
+    - AI Platform Engineer
+  seniority: senior
+  remote_regions: [worldwide, emea, mena]
+  onsite_locations: [Cairo, Dubai, Abu Dhabi, Riyadh, Jeddah, Doha]
+  needs_sponsorship: true
+  skills: [python, llm, rag, langgraph, fastapi, pytorch, docker, kubernetes, aws, agents]
+cv: |
+  Sam Rivera, AI Engineer. Cairo, Egypt. Open to remote and to relocation with visa sponsorship.
+
+  SUMMARY
+  AI/LLM engineer with 5 years of Python backend experience, the last 3 building LLM products in
+  production: retrieval-augmented generation, tool-using agents and evaluation pipelines.
+
+  EXPERIENCE
+  Senior AI Engineer, Nilecart (e-commerce, Cairo), 2023-present
+  - Built a RAG customer-support assistant (FastAPI, LangGraph, pgvector, OpenAI and open models)
+    answering 40% of tickets without escalation; designed the offline eval set and CI gate.
+  - Shipped an agent that drafts merchant onboarding documents from scanned forms (OCR + LLM
+    extraction to JSON schema), cutting onboarding time from 3 days to 4 hours.
+  - Ran model serving on Kubernetes (AWS EKS), with tracing (OpenTelemetry) and cost dashboards.
+
+  Backend Engineer, Fawry Labs (payments, Cairo), 2020-2023
+  - Python/Django and FastAPI services for payment reconciliation, PostgreSQL, Redis, Celery.
+  - Trained gradient-boosted fraud-scoring models (scikit-learn, XGBoost) with the risk team.
+
+  SKILLS
+  Python, FastAPI, Django, LangChain, LangGraph, PyTorch (fine-tuning small models, LoRA),
+  Hugging Face, RAG, vector search (pgvector, Elasticsearch), prompt and eval design, Docker,
+  Kubernetes, AWS, PostgreSQL, Redis, OpenTelemetry.
+
+  EDUCATION
+  B.Sc. Computer Engineering, Cairo University, 2020.
+  Languages: Arabic (native), English (fluent).

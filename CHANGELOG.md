@@ -5,6 +5,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Evals: 52 hand-labeled real postings for a synthetic persona; prefilter precision/recall
+  gate in CI (`tests/test_evals.py`); LLM screening eval (`evals/screening.py`) with band,
+  within-one-band and AUC gates, run by the on-demand/weekly `evals` workflow.
 - MCP server (`jobradar-mcp`, stdio): `start_run`, `get_run`, `get_summary`, `search_jobs`,
   `get_outbox`, `approve_draft`, as a thin client over the gateway API.
 - `apps/web`: Next.js 16 demo site on Cloudflare Workers (OpenNext). GitHub and Google
@@ -15,6 +18,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Docs: README v2, architecture, workflows, runbook, security, decision records.
 
 ### Changed
+- Demo title matching: all words of a target title in any order, engineer/developer and
+  ML/machine learning equivalent. Prefilter recall on the eval set 0.52 -> 0.95, precision 1.00.
 - Repository renamed to `JobRadar-Agentic-Job-Search-using-Go-Temporal-LangGraph-Elasticsearch-NextJS`.
 - Web dev server runs on port 3001 (Grafana uses 3000).
 

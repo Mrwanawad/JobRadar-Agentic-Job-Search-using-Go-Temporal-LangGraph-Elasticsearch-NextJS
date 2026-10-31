@@ -56,6 +56,22 @@ class DemoForm(BaseModel):
         return out
 
 
+# Interchangeable title words, so "AI Engineer" also finds "AI Developer" and
+# "ML Engineer" finds "Research Engineer, Machine Learning".
+TITLE_SYNONYMS: dict[str, str] = {
+    "engineer": "(?:engineer|developer)",
+    "developer": "(?:engineer|developer)",
+    "ml": "(?:ml|machine learning)",
+}
+
+
+def _title_rx(title: str) -> str:
+    """Every word of the target title, in any order: "Forward Deployed Engineer" matches
+    "Full-Stack Software Engineer (Forward Deployed)". Words are escaped user input."""
+    words = re.findall(r"[a-z0-9+#.]+", title.lower())
+    return "^" + "".join(rf"(?=.*\b{TITLE_SYNONYMS.get(w, re.escape(w))}\b)" for w in words)
+
+
 def _alternatives(words: list[str]) -> str:
     return "|".join(re.escape(w.lower()) for w in words)
 
@@ -81,7 +97,7 @@ def demo_profile(form: DemoForm) -> Profile:
             name=form.name, email="", base=form.base, cv="", constraints=constraints
         ),
         roles=Roles(
-            include=[rf"\b({titles})\b"],
+            include=[rf"\b({titles})\b", *(_title_rx(t) for t in form.target_titles)],
             exclude=[SENIORITY_EXCLUDE[form.seniority], *ALWAYS_EXCLUDE],
         ),
         locations=Locations(

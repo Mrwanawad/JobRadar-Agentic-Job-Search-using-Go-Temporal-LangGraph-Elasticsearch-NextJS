@@ -19,3 +19,8 @@ CLAUDE.md
 .claude/*
 !.claude/commands/
 *.local.*
+
+# LLM eval reports (uploaded as CI artifacts)
+evals/results/
+# Eval set: public job ads + a synthetic persona, no personal data
+!evals/data/

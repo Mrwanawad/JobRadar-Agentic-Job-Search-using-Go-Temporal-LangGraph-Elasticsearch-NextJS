@@ -76,6 +76,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/WORKFLOWS.md](doc
 | `proto/` | Protobuf contract shared by Go and Python (`buf generate`) |
 | `apps/web/` | Next.js 16 demo site for Cloudflare Workers ([README](apps/web/README.md)) |
 | `deploy/` | Docker Compose stack, Dockerfiles, Cloudflare Tunnel config |
+| `evals/` | Labeled postings + persona, prefilter and LLM screening evals |
 | `docs/` | Architecture, workflows, runbook, security, decision records |
 
 ## Quickstart (local, Docker)
@@ -141,7 +142,7 @@ uv run pytest                                  # Python: parsers, prefilter, gra
 (cd apps/web && npm run lint && npm run typecheck)
 ```
 
-CI runs all of these plus `buf lint`, a full Cloudflare Worker build and a gitleaks scan of
+CI runs all of these (including the prefilter quality gate on the labeled eval set) plus `buf lint`, a full Cloudflare Worker build and a gitleaks scan of
 the whole git history.
 
 ## Docs
@@ -149,6 +150,7 @@ the whole git history.
 - [Architecture](docs/ARCHITECTURE.md): components, data model, why each piece exists
 - [Workflows](docs/WORKFLOWS.md): RadarWorkflow, approvals, purge, schedules, limits
 - [Runbook](docs/RUNBOOK.md): run, debug and recover the stack
+- [Evals](docs/EVALS.md): labeled postings, prefilter CI gate, LLM screening eval
 - [Security](docs/SECURITY.md): trust boundaries, secrets, data retention
 - [Decision records](docs/adr/): Temporal, Go + Python split, client-side RRF, Workers + Tunnel
 - [Sources](docs/ENDPOINTS.md): verified job-board endpoints and LLM free-tier limits
@@ -162,8 +164,7 @@ anything is sent. See `uv run jobradar --help` and `profile.example.yaml`.
 
 ## Status
 
-Backend and web app work end to end locally. Not yet deployed. Next: an eval set
-with a CI quality gate, and deployment to Oracle Cloud (k3s, Helm, Argo CD) behind Cloudflare.
+Backend and web app work end to end locally. Not yet deployed. Next: deployment to Oracle Cloud (k3s, Helm, Argo CD) behind Cloudflare.
 
 ## License
 
