@@ -58,6 +58,27 @@ CREATE TABLE IF NOT EXISTS outbox (
     sent_at TEXT,
     ref TEXT
 );
+
+-- Applications that got a reply and are moving (screening, interviews, offer). found_by: pipeline
+-- (JobRadar fetch) | agent (Claude found it while searching/browsing) | you (applied yourself).
+-- outbox_id links back to the application when the agent sent it.
+CREATE TABLE IF NOT EXISTS processes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company TEXT NOT NULL,
+    title TEXT NOT NULL,
+    found_by TEXT NOT NULL,
+    found_on TEXT,
+    method TEXT NOT NULL,
+    outbox_id INTEGER REFERENCES outbox(id),
+    applied_at TEXT,
+    stage TEXT NOT NULL,
+    contacts TEXT,
+    next_step TEXT,
+    notes TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    updated_at TEXT NOT NULL,
+    UNIQUE (company, title)
+);
 """
 
 
@@ -78,6 +99,11 @@ class DB:
         self.conn = sqlite3.connect(path)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        # Where the posting was discovered (LinkedIn post, Wuzzuf...), separate from how we applied.
+        for table in ("outbox", "processes"):
+            cols = {r["name"] for r in self.conn.execute(f"PRAGMA table_info({table})")}
+            if "found_on" not in cols:
+                self.conn.execute(f"ALTER TABLE {table} ADD COLUMN found_on TEXT")
 
     def upsert_jobs(self, jobs: list[Job]) -> int:
         """Insert unseen jobs; return how many were new. Seen jobs are left untouched."""
@@ -208,13 +234,38 @@ class DB:
             is not None
         )
 
-    def mark(self, outbox_id: int, status: str, ref: str = "") -> bool:
+    def mark(
+        self, outbox_id: int, status: str, ref: str = "", found_on: str | None = None
+    ) -> bool:
         cur = self.conn.execute(
-            "UPDATE outbox SET status=?, ref=?, sent_at=? WHERE id=?",
-            (status, ref, now() if status == "sent" else None, outbox_id),
+            "UPDATE outbox SET status=?, ref=?, sent_at=?, found_on=COALESCE(?, found_on) "
+            "WHERE id=?",
+            (status, ref, now() if status == "sent" else None, found_on, outbox_id),
         )
         self.conn.commit()
         return cur.rowcount == 1
+
+    def upsert_process(self, company: str, title: str, **fields: Any) -> int:
+        """Create or update an application process; only the given fields change."""
+        fields = {k: v for k, v in fields.items() if v is not None}
+        row = self.conn.execute(
+            "SELECT id FROM processes WHERE company=? AND title=?", (company, title)
+        ).fetchone()
+        if row:
+            sets = ", ".join(f"{k}=?" for k in fields)
+            self.conn.execute(
+                f"UPDATE processes SET {sets}{', ' if sets else ''}updated_at=? WHERE id=?",
+                (*fields.values(), now(), row["id"]),
+            )
+            self.conn.commit()
+            return row["id"]
+        cols = ["company", "title", *fields, "updated_at"]
+        cur = self.conn.execute(
+            f"INSERT INTO processes ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
+            (company, title, *fields.values(), now()),
+        )
+        self.conn.commit()
+        return cur.lastrowid or 0
 
     def counts(self) -> dict[str, int]:
         rows = self.conn.execute("SELECT status, COUNT(*) n FROM jobs GROUP BY status")

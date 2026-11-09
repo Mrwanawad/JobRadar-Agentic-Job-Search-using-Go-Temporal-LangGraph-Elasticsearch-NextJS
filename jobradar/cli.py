@@ -108,6 +108,41 @@ def sendable_cmd() -> None:
 
 
 @app.command()
+def process(
+    company: str,
+    title: str,
+    stage: str = typer.Option(None, help="e.g. 'HR interview done', 'Technical 2 scheduled'"),
+    found_by: str = typer.Option(None, help="pipeline | agent | you"),
+    found_on: str = typer.Option(None, help="Where the posting was found, e.g. 'LinkedIn post'"),
+    method: str = typer.Option(None, help="e.g. Workable form, Cold email, LinkedIn Easy Apply"),
+    outbox_id: int = typer.Option(None, help="Outbox row of the application, if the agent sent it"),
+    applied_at: str = typer.Option(None, help="YYYY-MM-DD"),
+    contacts: str = typer.Option(None),
+    next_step: str = typer.Option(None),
+    notes: str = typer.Option(None),
+    closed: bool = typer.Option(None, "--closed/--active", help="Rejected / withdrawn / done"),
+) -> None:
+    """Track an application that is moving (interviews). Shown on the dashboard."""
+    db = DB()
+    exists = db.conn.execute(
+        "SELECT 1 FROM processes WHERE company=? AND title=?", (company, title)
+    ).fetchone()
+    if not exists and not (stage and found_by and method):
+        typer.echo("new process needs --stage, --found-by and --method", err=True)
+        raise typer.Exit(1)
+    if found_by and found_by not in {"pipeline", "agent", "you"}:
+        typer.echo("--found-by must be pipeline | agent | you", err=True)
+        raise typer.Exit(1)
+    pid = db.upsert_process(
+        company, title, stage=stage, found_by=found_by, found_on=found_on, method=method,
+        outbox_id=outbox_id, applied_at=applied_at, contacts=contacts, next_step=next_step,
+        notes=notes,
+        active=None if closed is None else int(not closed),
+    )
+    typer.echo(f"process #{pid} saved")
+
+
+@app.command()
 def dashboard(
     port: int = typer.Option(0, help="0 = random free port"),
     open_browser: bool = typer.Option(True, "--open/--no-open"),
@@ -135,11 +170,12 @@ def mark(
     outbox_id: int,
     status: str = typer.Argument(..., help="sent | failed | skipped | draft"),
     ref: str = typer.Option("", help="Message id or error text"),
+    found_on: str = typer.Option(None, help="Where the posting was found, e.g. 'LinkedIn post'"),
 ) -> None:
     """Record what happened to an outbox item."""
     if status not in {"sent", "failed", "skipped", "draft"}:
         raise typer.BadParameter("status must be sent, failed, skipped or draft")
-    if not DB().mark(outbox_id, status, ref):
+    if not DB().mark(outbox_id, status, ref, found_on):
         raise typer.Exit(f"no outbox item #{outbox_id}")
     typer.echo(f"#{outbox_id} -> {status}")
 

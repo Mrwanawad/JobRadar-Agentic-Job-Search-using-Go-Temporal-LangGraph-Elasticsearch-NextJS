@@ -34,7 +34,11 @@ h2 { font-size: 18px; font-weight: 800; margin: -16px -16px 14px; padding: 10px 
 .kpi .v { font-size: 38px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .kpi .l { color: var(--muted); font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 16px; }
-@media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+.grid.two { grid-template-columns: 1fr 1fr; }
+@media (max-width: 860px) { .grid, .grid.two { grid-template-columns: 1fr; } }
+.frow.wide { grid-template-columns: 200px 1fr 56px; }
+.tag.agent { color: var(--accent); } .tag.you { color: var(--muted); } .tag.closed { color: var(--bad); }
+.stage { font-weight: 800; }
 .funnel { display: grid; gap: 10px; }
 .frow { display: grid; grid-template-columns: 130px 1fr 72px; align-items: center; gap: 10px; font-weight: 600; }
 .bar { height: 16px; background: var(--chip); border: 1px solid var(--line); overflow: hidden; }
@@ -66,6 +70,29 @@ a { color: var(--accent); font-weight: 600; text-decoration: underline; text-und
   </header>
 
   <div class="kpis" id="kpis"></div>
+
+  <div class="card section">
+    <h2>In process (interviews)</h2>
+    <div class="tablewrap"><table id="procs"></table></div>
+  </div>
+
+  <div class="grid two">
+    <div class="card">
+      <h2>Applications by method</h2>
+      <div class="funnel" id="bymethod"></div>
+    </div>
+    <div class="card">
+      <h2>Found on</h2>
+      <div class="funnel" id="byfoundon"></div>
+    </div>
+  </div>
+
+  <div class="grid two">
+    <div class="card">
+      <h2>Found by</h2>
+      <div class="funnel" id="byfound"></div>
+    </div>
+  </div>
 
   <div class="grid">
     <div class="card">
@@ -112,10 +139,10 @@ function rows(el, head, body, empty) {
     : `<tbody><tr><td class="empty">${empty}</td></tr></tbody>`;
 }
 
-function bars(el, items) {
+function bars(el, items, cls = "") {
   const max = Math.max(1, ...items.map(i => i[1]));
   el.innerHTML = items.map(([label, n]) =>
-    `<div class="frow"><span class="small">${esc(label)}</span>
+    `<div class="frow ${cls}"><span class="small">${esc(label)}</span>
      <div class="bar"><i style="width:${(n / max * 100).toFixed(1)}%"></i></div>
      <span class="num small">${fmt(n)}</span></div>`).join("");
 }
@@ -134,6 +161,7 @@ function render(d) {
   ].join("");
 
   document.getElementById("kpis").innerHTML = [
+    ["In process", d.processes.filter(p => p.active).length],
     ["Jobs tracked", d.total], ["Passed filters", scored + (s.candidate || 0)],
     ["LLM-scored", scored], [`Score ≥ ${c.min_score}`, shortlisted],
     ["Applications sent", oc.sent || 0], ["Skipped", oc.skipped || 0],
@@ -146,13 +174,33 @@ function render(d) {
   ]);
   bars(document.getElementById("scores"), d.scores.map(r => [`${r.bucket}–${r.bucket + 1}`, r.n]).reverse());
 
+  const who = f => `<span class="tag ${f === "You" ? "you" : "agent"}">${esc(f)}</span>`;
+  rows(document.getElementById("procs"),
+    ["Company / role", "Stage", "Found by", "Found on", "Applied via", "Applied", "Contacts", "Next step"],
+    d.processes.map(p => `<tr>
+      <td>${link(p.url, p.company)}<div class="muted small">${esc(p.title)}</div>
+        ${p.active ? "" : `<span class="tag closed">closed</span>`}</td>
+      <td class="stage">${esc(p.stage)}<div class="muted small">${esc(p.notes || "")}</div></td>
+      <td>${who(p.found_by)}</td>
+      <td class="small">${esc(p.found_on || "unknown")}</td>
+      <td><span class="tag">${esc(p.method)}</span>${p.outbox_id ? `<div class="muted small">outbox #${p.outbox_id}</div>` : ""}</td>
+      <td class="small">${esc(p.applied_at || "—")}</td>
+      <td class="small">${esc(p.contacts || "—")}</td>
+      <td class="small">${esc(p.next_step || "—")}</td></tr>`),
+    "No applications in process. Add one: jobradar process COMPANY TITLE --stage ... --found-by ... --method ...");
+  bars(document.getElementById("bymethod"), d.by_method, "wide");
+  bars(document.getElementById("byfound"), d.by_found, "wide");
+  bars(document.getElementById("byfoundon"), d.by_found_on, "wide");
+
   rows(document.getElementById("apps"),
-    ["#", "Company / role", "Score", "Via", "Status", "When", "Note"],
+    ["#", "Company / role", "Score", "Found by", "Found on", "Method", "Status", "When", "Note"],
     d.outbox.map(r => `<tr>
       <td class="muted">${r.id}</td>
       <td>${link(r.url, r.company)}<div class="muted small">${esc(r.title)}</div></td>
       <td class="score">${(r.llm_score ?? 0).toFixed(1)}</td>
-      <td><span class="tag">${esc(r.channel === "manual" ? "apply form" : r.channel)}</span></td>
+      <td>${who(r.found_by)}</td>
+      <td class="small">${esc(r.found_on)}</td>
+      <td><span class="tag">${esc(r.method)}</span></td>
       <td><span class="tag ${esc(r.status)}">${esc(r.status)}</span></td>
       <td class="small">${when(r.sent_at || r.created_at)}</td>
       <td class="small muted">${esc(r.ref)}</td></tr>`),

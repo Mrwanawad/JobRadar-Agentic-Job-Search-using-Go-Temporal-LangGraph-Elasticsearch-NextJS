@@ -22,9 +22,63 @@ def _rows(conn: sqlite3.Connection, sql: str, args: tuple = ()) -> list[dict[str
     return [dict(r) for r in conn.execute(sql, args)]
 
 
+def _tally(items: Any) -> list[list[Any]]:
+    counts: dict[str, int] = {}
+    for k in items:
+        counts[k] = counts.get(k, 0) + 1
+    return sorted(([k, n] for k, n in counts.items()), key=lambda kv: -kv[1])
+
+
 def _grab(rx: str, text: str) -> str | None:
     m = re.search(rx, text)
     return m.group(1) if m else None
+
+
+# ATS / board names as they appear in outbox refs and apply URLs -> display label.
+_ATS = [
+    ("workable", "Workable"), ("greenhouse", "Greenhouse"), ("ashby", "Ashby"), ("lever", "Lever"),
+    ("wuzzuf", "Wuzzuf"), ("teamtailor", "Teamtailor"), ("smartrecruiters", "SmartRecruiters"),
+    ("applytojob", "JazzHR"), ("jazzhr", "JazzHR"), ("breezy", "Breezy"), ("bamboohr", "BambooHR"),
+    ("workday", "Workday"), ("successfactors", "SuccessFactors"), ("recruitee", "Recruitee"),
+    ("personio", "Personio"), ("easy apply", "LinkedIn Easy Apply"),
+]
+_CHANNELS = {"email": "Cold email", "whatsapp": "WhatsApp", "linkedin": "LinkedIn DM"}
+FOUND_BY = {"pipeline": "Agent (JobRadar pipeline)", "agent": "Agent (Claude search)", "you": "You"}
+
+
+def method_of(channel: str, ref: str | None, url: str | None) -> str:
+    """How the application went out: cold email, a named ATS form, a DM..."""
+    if channel in _CHANNELS:
+        return _CHANNELS[channel]
+    hay = f"{ref or ''} {url or ''}".lower()
+    for key, label in _ATS:
+        if key in hay:
+            return label if label.startswith("LinkedIn") else f"{label} form"
+    return "Careers-page form"
+
+
+_BOARDS = {
+    "wuzzuf": "Wuzzuf", "greenhouse": "Greenhouse board", "ashby": "Ashby board",
+    "lever": "Lever board", "workable": "Workable board", "wwr": "We Work Remotely",
+    "remoteok": "RemoteOK", "himalayas": "Himalayas", "careers": "Careers pages",
+    "smartrecruiters": "SmartRecruiters board",
+}
+
+
+def found_on_of(source: str, ref: str | None, url: str | None) -> str:
+    """Best guess at where a posting was discovered, for rows recorded without `found_on`."""
+    hay = f"{ref or ''} {url or ''}".lower()
+    if "linkedin" in hay:
+        return "LinkedIn post" if re.search(r"post|feed", hay) else "LinkedIn Jobs"
+    if source in _BOARDS:
+        return _BOARDS[source]
+    if "cold email" in hay:
+        return "Company research"
+    if "wuzzuf" in hay:
+        return "Wuzzuf"
+    if "jobs.workable.com" in hay:
+        return "Workable board"
+    return "Web search"
 
 
 def _log_runs(limit: int = 14) -> list[dict[str, Any]]:
@@ -60,7 +114,8 @@ def snapshot(db_path: Path = DEFAULT_PATH) -> dict[str, Any]:
         outbox = _rows(
             conn,
             "SELECT o.id, o.channel, o.recipient, o.status, o.created_at, o.sent_at, o.ref, "
-            "j.company, j.title, j.location, j.llm_score, j.url "
+            "o.found_on, "
+            "j.company, j.title, j.location, j.llm_score, j.url, j.source "
             "FROM outbox o JOIN jobs j ON j.uid = o.uid ORDER BY o.id DESC",
         )
         shortlist = _rows(
@@ -69,6 +124,22 @@ def snapshot(db_path: Path = DEFAULT_PATH) -> dict[str, Any]:
             "o.status AS outreach FROM jobs j LEFT JOIN outbox o ON o.uid = j.uid "
             "WHERE j.status='scored' ORDER BY j.llm_score DESC, j.posted_at DESC LIMIT 60",
         )
+        for r in outbox:
+            r["method"] = method_of(r["channel"], r["ref"], r["url"])
+            source = r.pop("source")
+            r["found_on"] = r["found_on"] or found_on_of(source, r["ref"], r["url"])
+            r["found_by"] = FOUND_BY["agent" if source == "manual" else "pipeline"]
+        processes = _rows(
+            conn,
+            "SELECT p.*, j.url, j.source, o.ref, o.found_on AS outbox_found_on "
+            "FROM processes p LEFT JOIN outbox o ON o.id = p.outbox_id "
+            "LEFT JOIN jobs j ON j.uid = o.uid ORDER BY p.active DESC, p.updated_at DESC",
+        )
+        for r in processes:
+            r["found_by"] = FOUND_BY.get(r["found_by"], r["found_by"])
+            guess = found_on_of(r["source"] or "", r["ref"], r["url"]) if r["outbox_id"] else None
+            r["found_on"] = r["found_on"] or r.pop("outbox_found_on") or guess
+        sent = [r for r in outbox if r["status"] == "sent"]
         for r in shortlist:
             res = json.loads(r.pop("llm_json") or "{}")
             r["fit"] = res.get("location_fit")
@@ -89,6 +160,10 @@ def snapshot(db_path: Path = DEFAULT_PATH) -> dict[str, Any]:
                 "WHERE status='scored' GROUP BY bucket ORDER BY bucket",
             ),
             "outbox": outbox,
+            "processes": processes,
+            "by_method": _tally(r["method"] for r in sent),
+            "by_found": _tally(r["found_by"] for r in sent),
+            "by_found_on": _tally(r["found_on"] for r in sent),
             "outbox_counts": {
                 r["status"]: r["n"]
                 for r in _rows(conn, "SELECT status, COUNT(*) n FROM outbox GROUP BY status")
