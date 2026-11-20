@@ -40,7 +40,7 @@ export default function DemoPage() {
         <p className="text-muted">
           Sign in so each account gets one demo run. Only your account id is kept, to enforce that limit.
         </p>
-        <SignInButtons devLogin={me.dev_login} />
+        <SignInButtons devLogin={me.dev_login} google={me.google} />
       </div>
     );
   }

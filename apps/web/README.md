@@ -38,6 +38,7 @@ npm run preview                       # real Worker build on http://localhost:87
 
 OAuth callback URLs: `http://localhost:3001/api/auth/github/callback` and
 `http://localhost:3001/api/auth/google/callback` (swap the host for production).
+Google is optional: without `GOOGLE_CLIENT_ID` its button and route are off, GitHub alone works.
 The Turnstile keys in the examples are Cloudflare's always-pass test keys.
 
 No OAuth apps yet? With `DEV_LOGIN=1` in `.dev.vars` the sign-in page shows **Local test

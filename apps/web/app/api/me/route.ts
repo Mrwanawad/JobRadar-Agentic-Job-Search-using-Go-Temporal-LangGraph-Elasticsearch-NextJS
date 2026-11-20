@@ -12,5 +12,7 @@ export async function GET() {
     pending: !!run && !run.workflow_id,
     turnstile_site_key: e.TURNSTILE_SITE_KEY,
     dev_login: e.DEV_LOGIN === "1",
+    // Google sign-in is optional: shown only when its OAuth client is configured.
+    google: !!e.GOOGLE_CLIENT_ID,
   });
 }

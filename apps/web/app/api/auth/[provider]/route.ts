@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { generateCodeVerifier, generateState } from "arctic";
 import { github, google, isProvider } from "@/lib/oauth";
-import { redirectTo } from "@/lib/env";
+import { env, redirectTo } from "@/lib/env";
 
 const TEN_MINUTES = 600;
 
@@ -9,6 +9,9 @@ const TEN_MINUTES = 600;
 export async function GET(_req: Request, ctx: RouteContext<"/api/auth/[provider]">) {
   const { provider } = await ctx.params;
   if (!isProvider(provider)) return new Response("unknown provider", { status: 404 });
+  if (provider === "google" && !(await env()).GOOGLE_CLIENT_ID) {
+    return new Response("Google sign-in is not configured", { status: 404 });
+  }
 
   const jar = await cookies();
   const opts = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/", maxAge: TEN_MINUTES };
