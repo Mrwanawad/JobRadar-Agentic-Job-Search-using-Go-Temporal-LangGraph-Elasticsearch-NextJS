@@ -234,9 +234,7 @@ class DB:
             is not None
         )
 
-    def mark(
-        self, outbox_id: int, status: str, ref: str = "", found_on: str | None = None
-    ) -> bool:
+    def mark(self, outbox_id: int, status: str, ref: str = "", found_on: str | None = None) -> bool:
         cur = self.conn.execute(
             "UPDATE outbox SET status=?, ref=?, sent_at=?, found_on=COALESCE(?, found_on) "
             "WHERE id=?",
@@ -266,6 +264,55 @@ class DB:
         )
         self.conn.commit()
         return cur.lastrowid or 0
+
+    def log_application(
+        self,
+        company: str,
+        title: str,
+        url: str,
+        channel: str = "manual",
+        recipient: str = "",
+        ref: str = "",
+        found_on: str | None = None,
+    ) -> int:
+        """Record an application sent outside the pipeline (a form filled in the browser, an
+        email to a recruiter). Returns the outbox id; 0 if this job was already logged."""
+        uid = Job(
+            source="manual",
+            external_id=url or f"{company}|{title}",
+            company=company,
+            title=title,
+            url=url,
+        ).uid
+        self.conn.execute(
+            "INSERT OR IGNORE INTO jobs (uid, fingerprint, source, company, title, url, "
+            "first_seen, status) VALUES (?,?,?,?,?,?,?,'scored')",
+            (uid, fingerprint(company, title), "manual", company, title, url, now()),
+        )
+        if self.draft_for(uid):
+            self.conn.commit()
+            return 0
+        cur = self.conn.execute(
+            "INSERT INTO outbox (uid, channel, recipient, subject, body, status, created_at, "
+            "sent_at, ref, found_on) VALUES (?,?,?,?,'','sent',?,?,?,?)",
+            (uid, channel, recipient or url, title, now(), now(), ref, found_on),
+        )
+        self.conn.commit()
+        return cur.lastrowid or 0
+
+    def applications_to(self, company: str) -> list[sqlite3.Row]:
+        """Applications already sent or drafted for a company, to avoid applying twice."""
+        name = fingerprint(company, "").split("|")[0]
+        if not name:
+            return []
+        # Either name may carry extra words: "Acme" vs "Acme AI, Inc."
+        return self.conn.execute(
+            "SELECT * FROM (SELECT o.id, o.status, o.channel, o.recipient, o.sent_at, j.company, "
+            "j.title, j.url, substr(j.fingerprint, 1, instr(j.fingerprint, '|') - 1) AS c "
+            "FROM outbox o JOIN jobs j ON j.uid = o.uid WHERE o.status IN ('sent', 'draft')) "
+            "WHERE c <> '' AND (c LIKE ? OR ? LIKE '%' || c || '%') ORDER BY id DESC",
+            (f"%{name}%", name),
+        ).fetchall()
 
     def counts(self) -> dict[str, int]:
         rows = self.conn.execute("SELECT status, COUNT(*) n FROM jobs GROUP BY status")

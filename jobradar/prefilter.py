@@ -45,7 +45,7 @@ class Prefilter:
     def location_ok(self, location: str, remote: bool | None, description: str) -> tuple[bool, str]:
         loc = location or ""
         if self.onsite_allowed.search(loc):
-            return True, "location in Egypt/Gulf"
+            return True, "on-site location allowed"
         if self.remote_allowed.search(loc):
             return True, "remote, open region"
         if remote or "remote" in loc.lower():

@@ -45,15 +45,18 @@ Return this JSON:
 }}"""
 
 
-def cv_text(profile: Profile) -> str:
-    """Text of the CV PDF, cached next to it as .txt (gitignored)."""
-    pdf = ROOT / profile.candidate.cv
+def pdf_text(pdf: Path) -> str:
+    """Text of a CV PDF, cached next to it as .txt (gitignored)."""
     cache = pdf.with_suffix(".txt")
     if cache.exists() and cache.stat().st_mtime >= pdf.stat().st_mtime:
         return cache.read_text(encoding="utf-8")
     text = "\n".join(p.extract_text() or "" for p in PdfReader(pdf).pages).strip()
-    Path(cache).write_text(text, encoding="utf-8")
+    cache.write_text(text, encoding="utf-8")
     return text
+
+
+def cv_text(profile: Profile) -> str:
+    return pdf_text(ROOT / profile.candidate.cv)
 
 
 def clamp(score: Any, result: dict[str, Any]) -> float:

@@ -36,11 +36,22 @@ def _grab(rx: str, text: str) -> str | None:
 
 # ATS / board names as they appear in outbox refs and apply URLs -> display label.
 _ATS = [
-    ("workable", "Workable"), ("greenhouse", "Greenhouse"), ("ashby", "Ashby"), ("lever", "Lever"),
-    ("wuzzuf", "Wuzzuf"), ("teamtailor", "Teamtailor"), ("smartrecruiters", "SmartRecruiters"),
-    ("applytojob", "JazzHR"), ("jazzhr", "JazzHR"), ("breezy", "Breezy"), ("bamboohr", "BambooHR"),
-    ("workday", "Workday"), ("successfactors", "SuccessFactors"), ("recruitee", "Recruitee"),
-    ("personio", "Personio"), ("easy apply", "LinkedIn Easy Apply"),
+    ("workable", "Workable"),
+    ("greenhouse", "Greenhouse"),
+    ("ashby", "Ashby"),
+    ("lever", "Lever"),
+    ("wuzzuf", "Wuzzuf"),
+    ("teamtailor", "Teamtailor"),
+    ("smartrecruiters", "SmartRecruiters"),
+    ("applytojob", "JazzHR"),
+    ("jazzhr", "JazzHR"),
+    ("breezy", "Breezy"),
+    ("bamboohr", "BambooHR"),
+    ("workday", "Workday"),
+    ("successfactors", "SuccessFactors"),
+    ("recruitee", "Recruitee"),
+    ("personio", "Personio"),
+    ("easy apply", "LinkedIn Easy Apply"),
 ]
 _CHANNELS = {"email": "Cold email", "whatsapp": "WhatsApp", "linkedin": "LinkedIn DM"}
 FOUND_BY = {"pipeline": "Agent (JobRadar pipeline)", "agent": "Agent (Claude search)", "you": "You"}
@@ -58,9 +69,15 @@ def method_of(channel: str, ref: str | None, url: str | None) -> str:
 
 
 _BOARDS = {
-    "wuzzuf": "Wuzzuf", "greenhouse": "Greenhouse board", "ashby": "Ashby board",
-    "lever": "Lever board", "workable": "Workable board", "wwr": "We Work Remotely",
-    "remoteok": "RemoteOK", "himalayas": "Himalayas", "careers": "Careers pages",
+    "wuzzuf": "Wuzzuf",
+    "greenhouse": "Greenhouse board",
+    "ashby": "Ashby board",
+    "lever": "Lever board",
+    "workable": "Workable board",
+    "wwr": "We Work Remotely",
+    "remoteok": "RemoteOK",
+    "himalayas": "Himalayas",
+    "careers": "Careers pages",
     "smartrecruiters": "SmartRecruiters board",
 }
 

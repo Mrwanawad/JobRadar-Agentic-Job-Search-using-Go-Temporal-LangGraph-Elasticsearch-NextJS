@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field
@@ -27,12 +28,10 @@ class Candidate(BaseModel):
 
 
 DEFAULT_CONSTRAINTS = """\
-- Based in {base}. Holds Egyptian citizenship; no work authorisation elsewhere unless
-  the CV says so.
-- Acceptable: remote roles open to Egypt/EMEA/worldwide; on-site or relocation in Egypt or
-  the Gulf (KSA, UAE, Qatar, Kuwait, Bahrain, Oman); EU/US on-site only with visa sponsorship.
-- Target: mid-to-senior AI/LLM/ML engineering, voice/agents, computer vision, data science,
-  AI training/education. Senior-to-principal data analyst only if the package looks strong."""
+- Based in {base}. Work authorisation only where the CV states it; anywhere else needs
+  visa sponsorship.
+- Acceptable: remote roles open to the candidate's region or worldwide; on-site where they
+  live or are authorised; elsewhere only with visa sponsorship."""
 
 
 class Roles(BaseModel):
@@ -74,6 +73,9 @@ class Profile(BaseModel):
     skills: list[str] = Field(default_factory=list)
     scoring: Scoring = Scoring()
     outreach: Outreach = Outreach()
+    # Standing answers for application forms (salary, notice period, relocation, work
+    # authorisation...). Read by the Claude Code plugin when it fills forms, not by the pipeline.
+    answers: dict[str, Any] = Field(default_factory=dict)
 
     def rx(self, pattern: str) -> re.Pattern[str]:
         return re.compile(pattern, re.I)

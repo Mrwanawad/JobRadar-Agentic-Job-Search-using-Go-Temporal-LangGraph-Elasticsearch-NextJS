@@ -27,6 +27,167 @@ def main(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
     )
 
 
+def _csv(s: str) -> list[str]:
+    return [x.strip() for x in s.split(",") if x.strip()]
+
+
+@app.command()
+def init(
+    cv: Path = typer.Option(None, help="Your CV as a text PDF (not a scan)"),
+    force: bool = typer.Option(False, help="Overwrite an existing profile.yaml"),
+) -> None:
+    """First-run setup: LLM key, CV, and a profile.yaml built from a few questions."""
+    import shutil
+
+    import click
+    from pydantic import ValidationError
+
+    from jobradar import onboard
+    from jobradar.agent.profiles import DemoForm
+    from jobradar.llm import providers_from_env
+    from jobradar.score import pdf_text
+
+    target = ROOT / "profile.yaml"
+    if target.exists() and not force:
+        typer.echo("profile.yaml already exists; edit it, or rerun with --force", err=True)
+        raise typer.Exit(1)
+
+    typer.echo("1/3  LLM key (free tiers are enough)")
+    if providers_from_env():
+        typer.echo("     found keys in .env")
+    else:
+        provider = typer.prompt(
+            "     provider", default="gemini", type=click.Choice(list(onboard.KEY_URLS))
+        )
+        typer.echo(f"     get a free key: {onboard.KEY_URLS[provider]}")
+        key = typer.prompt("     API key", hide_input=True)
+        onboard.set_env({f"{provider.upper()}_API_KEY": key.strip(), "LLM_PROVIDERS": provider})
+
+    typer.echo("2/3  CV")
+    cv = cv or Path(typer.prompt("     path to your CV PDF"))
+    cv = cv.expanduser().resolve()
+    if not cv.exists():
+        typer.echo(f"     not found: {cv}", err=True)
+        raise typer.Exit(1)
+    dest = ROOT / "cv" / "cv.pdf"
+    dest.parent.mkdir(exist_ok=True)
+    if cv != dest:
+        shutil.copyfile(cv, dest)
+    text = pdf_text(dest)
+    if len(text) < 300:
+        typer.echo("     the PDF has almost no text (scanned?); export your CV as a text PDF")
+        raise typer.Exit(1)
+    hint: dict = {}
+    try:
+        hint = onboard.suggest_from_cv(text)
+        typer.echo("     read your CV; suggestions below are defaults, press Enter to keep")
+    except Exception as e:  # no key or quota: the user answers without defaults
+        typer.echo(f"     could not read the CV with the LLM ({str(e)[:80]}); answer by hand")
+
+    typer.echo("3/3  About you and the jobs you want")
+    regions = ", ".join(onboard.region_names())
+    while True:
+        try:
+            form = DemoForm(
+                name=typer.prompt("     full name"),
+                base=typer.prompt(
+                    "     city, country you live in", default=hint.get("base") or None
+                ),
+                target_titles=_csv(
+                    typer.prompt(
+                        "     job titles to search, comma separated",
+                        default=", ".join(hint.get("target_titles", [])) or None,
+                    )
+                ),
+                seniority=typer.prompt(
+                    "     seniority",
+                    default=hint.get("seniority") or "mid",
+                    type=click.Choice(["junior", "mid", "senior", "lead"]),
+                ),
+                remote_regions=_csv(
+                    typer.prompt(
+                        f"     remote regions you can work from ({regions})", default="worldwide"
+                    )
+                ),
+                onsite_locations=_csv(
+                    typer.prompt(
+                        "     other cities/countries for on-site work, comma separated (or none)",
+                        default="none",
+                    ).replace("none", "")
+                ),
+                needs_sponsorship=typer.confirm(
+                    "     need visa sponsorship outside your country?", default=True
+                ),
+                skills=_csv(
+                    typer.prompt(
+                        "     key skills, comma separated",
+                        default=", ".join(hint.get("skills", [])) or None,
+                    )
+                ),
+            )
+            break
+        except ValidationError as e:
+            typer.echo(f"     {e.errors()[0]['loc'][0]}: {e.errors()[0]['msg']}; try again")
+    data = onboard.build_profile(
+        form,
+        email=typer.prompt("     email for applications"),
+        phone=typer.prompt("     phone with country code (optional)", default=""),
+        cv_link=typer.prompt(
+            "     public link to your CV, e.g. Google Drive 'anyone with the link' (optional)",
+            default="",
+        ),
+        links={
+            "linkedin": typer.prompt("     LinkedIn URL (optional)", default=""),
+            "github": typer.prompt("     GitHub URL (optional)", default=""),
+        },
+    )
+    onboard.write_profile(data, target)
+    o = data["outreach"]
+    typer.echo(
+        f"\nwrote profile.yaml. Nothing is sent before {o['dry_run_until']} (dry run), then max "
+        f"{o['daily_cap']}/day.\nNext: `jobradar doctor`, then `jobradar run`."
+    )
+
+
+@app.command()
+def doctor(ping: bool = typer.Option(False, help="Also make one real LLM call")) -> None:
+    """Check setup: profile, CV, LLM keys, sending state, blank form answers."""
+    from jobradar.onboard import checks
+
+    results = checks(ping=ping)
+    for level, name, detail in results:
+        typer.echo(f"{level.upper():<5} {name:<15} {detail}")
+    if any(level == "fail" for level, _, _ in results):
+        raise typer.Exit(1)
+
+
+@app.command("log")
+def log_cmd(
+    company: str,
+    title: str,
+    url: str = typer.Option("", help="Posting or application page"),
+    channel: str = typer.Option("manual", help="manual (form) | email | whatsapp | linkedin"),
+    recipient: str = typer.Option("", help="Email/number, if sent to a person"),
+    ref: str = typer.Option("", help="ATS, confirmation id, salary asked... free text"),
+    found_on: str = typer.Option(None, help="Where you found it, e.g. 'LinkedIn post'"),
+) -> None:
+    """Record an application sent outside the pipeline, so it is counted and never repeated."""
+    oid = DB().log_application(company, title, url, channel, recipient, ref, found_on)
+    typer.echo(f"#{oid} logged" if oid else "already logged")
+
+
+@app.command()
+def check(company: str) -> None:
+    """Show applications already sent or drafted to a company. Run before applying."""
+    rows = DB().applications_to(company)
+    for r in rows:
+        typer.echo(
+            f"#{r['id']:<4} {r['status']:<6} {(r['sent_at'] or '')[:10]:<10} "
+            f"{r['company']} - {r['title']}  ({r['channel']}: {r['recipient']})"
+        )
+    typer.echo(f"{len(rows)} earlier applications" if rows else "no earlier applications")
+
+
 @app.command()
 def fetch() -> None:
     """Pull jobs from every board and feed into the DB, then prefilter new ones."""
@@ -134,8 +295,16 @@ def process(
         typer.echo("--found-by must be pipeline | agent | you", err=True)
         raise typer.Exit(1)
     pid = db.upsert_process(
-        company, title, stage=stage, found_by=found_by, found_on=found_on, method=method,
-        outbox_id=outbox_id, applied_at=applied_at, contacts=contacts, next_step=next_step,
+        company,
+        title,
+        stage=stage,
+        found_by=found_by,
+        found_on=found_on,
+        method=method,
+        outbox_id=outbox_id,
+        applied_at=applied_at,
+        contacts=contacts,
+        next_step=next_step,
         notes=notes,
         active=None if closed is None else int(not closed),
     )
