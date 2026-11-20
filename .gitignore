@@ -24,3 +24,6 @@ CLAUDE.md
 evals/results/
 # Eval set: public job ads + a synthetic persona, no personal data
 !evals/data/
+
+# Demo GIF build output (frames, timelines, synthetic demo home)
+docs/demo/build/

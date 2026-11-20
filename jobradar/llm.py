@@ -24,6 +24,8 @@ from typing import Any
 import httpx
 from dotenv import load_dotenv
 
+from jobradar.config import ROOT
+
 try:  # platform extra; lite mode runs without OpenTelemetry
     from opentelemetry import trace
 
@@ -137,7 +139,7 @@ def _keys_for(prefix: str) -> list[str]:
 
 def providers_from_env() -> list[Provider]:
     """One Provider per API key, so a second key of the same service is its own fallback."""
-    load_dotenv(override=True)  # .env wins over OS-level variables
+    load_dotenv(ROOT / ".env", override=True)  # .env wins over OS-level variables
     order = os.getenv("LLM_PROVIDERS", "gemini,openrouter")
     out: list[Provider] = []
     for name in (n.strip().lower() for n in order.split(",") if n.strip()):

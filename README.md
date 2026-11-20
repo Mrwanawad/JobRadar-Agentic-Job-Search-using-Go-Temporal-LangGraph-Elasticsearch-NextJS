@@ -13,6 +13,8 @@ Agentic job search platform. JobRadar pulls thousands of live postings from ~60 
 ranks them against a CV with hybrid search, has an LLM agent explain every fit, and drafts
 applications that a human approves before anything is sent.
 
+<p align="center"><img src="docs/demo/apply.gif" width="100%" alt="Claude Code runs /jobradar:apply: it checks the candidate has not applied before, fills a careers-page form from the profile and CV, waits for the user's yes, submits and records the application" /></p>
+
 - **Durable pipeline.** Every run is a Temporal workflow: retries, timeouts, live progress
   queries and approval signals come from the workflow engine, not hand-written glue.
 - **Polyglot workers.** Go handles I/O-heavy ingestion (9 board parsers, bounded fan-out);
@@ -47,6 +49,13 @@ Then in Claude Code, from the repo folder:
 The plugin fills careers-page forms (Workable, Greenhouse, Lever, Ashby, SmartRecruiters...)
 in Chrome with your profile and CV, never applies twice, stops on CAPTCHAs and logins, and
 submits only on your yes. Full guide: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
+
+<p align="center"><img src="docs/demo/setup.gif" width="100%" alt="Terminal: jobradar init builds a profile from a CV, jobradar run fetches and LLM-scores jobs, jobradar top shows the ranked shortlist with reasons and red flags" /></p>
+
+<p align="center"><img src="docs/demo/dashboard.gif" width="100%" alt="Local dashboard: KPIs, interviews in progress with next steps, and every application with how and where it was found" /></p>
+
+The demos use a made-up candidate and companies; regenerate them with the scripts in
+[docs/demo/](docs/demo/).
 
 ## Architecture
 

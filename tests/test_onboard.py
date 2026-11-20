@@ -49,7 +49,7 @@ def test_set_env_keeps_other_lines(tmp_path, monkeypatch):
     env = tmp_path / ".env"
     (tmp_path / ".env.example").write_text("# comment\nLLM_PROVIDERS=gemini\n# GROQ_API_KEY=\n")
     monkeypatch.setenv("GROQ_API_KEY", "")
-    onboard.set_env({"GROQ_API_KEY": "k1", "LLM_PROVIDERS": "groq"}, env)
+    onboard.set_env({"GROQ_API_KEY": "k1", "LLM_PROVIDERS": "groq"}, env, tmp_path / ".env.example")
     assert env.read_text().splitlines() == ["# comment", "LLM_PROVIDERS=groq", "GROQ_API_KEY=k1"]
 
 

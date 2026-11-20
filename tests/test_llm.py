@@ -185,7 +185,7 @@ def test_parse_json_variants():
 
 @pytest.fixture
 def env(monkeypatch):
-    monkeypatch.setattr("jobradar.llm.load_dotenv", lambda **kw: None)
+    monkeypatch.setattr("jobradar.llm.load_dotenv", lambda *a, **kw: None)
     for p in ("GEMINI", "OPENROUTER", "GROQ"):
         monkeypatch.delenv(f"{p}_API_KEY", raising=False)
         for i in range(1, 10):

@@ -16,7 +16,7 @@ from typing import Any
 import yaml
 
 from jobradar.agent.profiles import REGIONS, DemoForm, demo_profile
-from jobradar.config import ROOT, load_companies, load_profile
+from jobradar.config import PACKAGE_ROOT, ROOT, load_companies, load_profile
 from jobradar.llm import LLMClient, providers_from_env
 
 # Where to get a free key, per provider `jobradar init` offers.
@@ -100,10 +100,13 @@ def write_profile(data: dict[str, Any], path: Path = ROOT / "profile.yaml") -> P
     return path
 
 
-def set_env(values: dict[str, str], path: Path = ROOT / ".env") -> Path:
+def set_env(
+    values: dict[str, str],
+    path: Path = ROOT / ".env",
+    example: Path = PACKAGE_ROOT / ".env.example",
+) -> Path:
     """Set keys in .env, keeping every other line. Starts from .env.example on first run."""
     if not path.exists():
-        example = path.with_name(".env.example")
         path.write_text(
             example.read_text(encoding="utf-8") if example.exists() else "", encoding="utf-8"
         )

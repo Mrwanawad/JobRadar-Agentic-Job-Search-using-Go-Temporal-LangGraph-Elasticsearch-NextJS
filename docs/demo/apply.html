@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Apply</title>
+<!-- README GIF 2 (docs/demo/scene_apply.py): Claude Code running /jobradar:apply on the left, a
+     fictional careers-page form on the right. Company, candidate and form are made up. -->
+<style>
+  :root { --ink: #1d232b; --muted: #5d6670; --line: #d9d5cc; --paper: #fbfaf7; --accent: #8a5a2b;
+          --term: #1f2023; --tfg: #e8e3d8; --tdim: #8e9099; --tok: #9cc28a; --tacc: #e2a663; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { display: grid; grid-template-columns: 430px 1fr; font: 15px/1.45 Georgia, serif;
+         color: var(--ink); background: var(--paper); overflow: hidden; }
+
+  /* Claude Code panel */
+  #cc { background: var(--term); color: var(--tfg); font: 14.5px/1.5 Consolas, monospace;
+        padding: 18px 18px 0; display: flex; flex-direction: column; }
+  #cc .hd { color: var(--tdim); border-bottom: 1px solid #34363b; padding-bottom: 10px;
+            margin-bottom: 10px; font-weight: bold; }
+  #log { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+  .l { white-space: pre-wrap; margin: 0 0 6px; opacity: 0; transform: translateY(4px);
+       transition: opacity .25s, transform .25s; }
+  .l.on { opacity: 1; transform: none; }
+  .tool { color: var(--tok); } .dim { color: var(--tdim); } .acc { color: var(--tacc); }
+  .you { color: #fff; }
+  #ask { border-top: 1px solid #34363b; padding: 12px 0 16px; display: flex; gap: 8px; }
+  #ask input { all: unset; flex: 1; color: #fff; caret-color: #fff; }
+
+  /* Careers page */
+  #site { overflow: hidden; display: flex; flex-direction: column; }
+  .bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 34px;
+         border-bottom: 1px solid var(--line); background: #fff; }
+  .brand { font: 22px "GFS Didot", Didot, "Bodoni MT", serif; letter-spacing: .02em; }
+  .bar span { font: bold 13px "Times New Roman", serif; color: var(--muted); }
+  main { padding: 20px 34px; overflow: hidden; flex: 1; }
+  h1 { font: 30px/1.15 "GFS Didot", Didot, "Bodoni MT", serif; margin: 0 0 4px; }
+  .meta { color: var(--muted); margin-bottom: 14px; font-size: 14px; }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+  label { font: bold 13.5px "Times New Roman", serif; display: block; margin-bottom: 3px; }
+  input.f, select, textarea { width: 100%; font: 14px Georgia, serif; color: var(--ink);
+         border: 1px solid var(--line); background: #fff; border-radius: 4px; padding: 7px 9px; }
+  textarea { height: 92px; resize: none; line-height: 1.4; }
+  .full { grid-column: 1 / -1; }
+  .drop { border: 1px dashed #bdb6a8; border-radius: 4px; padding: 8px 10px; color: var(--muted);
+          background: #fff; font-size: 14px; display: flex; justify-content: space-between; }
+  .drop.done { border-style: solid; color: var(--ink); }
+  .radios { display: flex; gap: 18px; font-size: 14px; padding-top: 4px; }
+  button { font: bold 15px "Times New Roman", serif; background: var(--ink); color: #fff;
+           border: 0; border-radius: 4px; padding: 10px 22px; cursor: pointer; justify-self: start; }
+  #done { display: none; padding: 60px 0; }
+  #done h2 { font: 30px "GFS Didot", Didot, serif; margin: 0 0 8px; }
+  #done p { color: var(--muted); margin: 0; }
+</style>
+</head>
+<body>
+<section id="cc">
+  <div class="hd">Claude Code  ·  ~/jobradar</div>
+  <div id="log"></div>
+  <div id="ask"><span class="you">&gt;</span><input aria-label="Reply to Claude"></div>
+</section>
+
+<section id="site">
+  <div class="bar"><div class="brand">Brightline AI</div><span>Careers</span></div>
+  <main>
+    <div id="formview">
+      <h1>Senior AI Engineer, Agents</h1>
+      <div class="meta">Remote (EMEA) · Engineering · Full time</div>
+      <form onsubmit="return false">
+        <div><label for="name">Full name</label><input class="f" id="name"></div>
+        <div><label for="email">Email</label><input class="f" id="email"></div>
+        <div><label for="phone">Phone</label><input class="f" id="phone"></div>
+        <div><label for="loc">Location</label><input class="f" id="loc"></div>
+        <div class="full"><label>Resume</label>
+          <div class="drop" id="cv"><span>Attach a PDF</span><span>Browse</span></div></div>
+        <div class="full"><label for="cl">Why Brightline?</label><textarea id="cl"></textarea></div>
+        <div><label for="yrs">Years building production LLM systems</label>
+          <select id="yrs"><option>Select</option><option>1-2</option><option>3-4</option>
+          <option>5+</option></select></div>
+        <div><label>Need visa sponsorship for EMEA remote?</label>
+          <div class="radios"><label><input type="radio" name="v" id="vyes"> Yes</label>
+          <label><input type="radio" name="v" id="vno"> No</label></div></div>
+        <div class="full"><button id="submit" type="button">Submit application</button></div>
+      </form>
+    </div>
+    <div id="done"><h2>Thank you, Sam.</h2>
+      <p>Your application for Senior AI Engineer, Agents was received. Reference BRT-4471.</p></div>
+  </main>
+</section>
+
+<script>
+const LINES = {
+  start: [
+    ['you', '> /jobradar:apply'],
+    ['tool', '● uv run jobradar outbox --status draft --channel manual'],
+    ['dim', '  6 drafted · best: Brightline AI, Senior AI Engineer, Agents (9.2)'],
+    ['tool', '● uv run jobradar check "Brightline AI"'],
+    ['dim', '  no earlier applications'],
+  ],
+  fill: [
+    ['tool', '● Chrome  jobs.example.com/brightline-ai'],
+    ['dim', '  filling from profile.yaml, CV and the drafted cover letter'],
+  ],
+  ready: [
+    ['', 'Form filled. Visa sponsorship: "No" (EMEA remote, per answers).'],
+    ['acc', 'Submit Brightline AI, Senior AI Engineer, Agents?'],
+  ],
+  sent: [
+    ['tool', '● Submitted · reference BRT-4471'],
+    ['tool', '● uv run jobradar mark 1 sent --ref "Careers form; BRT-4471"'],
+    ['dim', '  #1 -> sent · tab closed', 'logged'],
+    ['', 'Next: Juniper Voice, AI Engineer - Voice Agents (8.4)'],
+  ],
+};
+const log = document.getElementById("log");
+window.say = async (key) => {
+  for (const [cls, text, id] of LINES[key]) {
+    const d = document.createElement("div"); d.className = "l " + cls; d.textContent = text;
+    if (id) d.id = id;
+    log.appendChild(d); await new Promise(r => requestAnimationFrame(r)); d.classList.add("on");
+    await new Promise(r => setTimeout(r, 380));
+  }
+};
+window.attachCV = () => {
+  const cv = document.getElementById("cv"); cv.classList.add("done");
+  cv.innerHTML = "<span>sam-rivera-cv.pdf · 182 KB</span><span>Replace</span>";
+};
+window.coverLetter = () => {
+  document.getElementById("cl").value = "Your agents team ships customer-facing LLM workflows, "
+    + "which is what I have built for three years: a RAG support assistant at Nilecart that "
+    + "resolves 40% of tickets, with an eval set and CI gate I designed...";
+};
+document.getElementById("submit").addEventListener("click", () => {
+  document.getElementById("formview").style.display = "none";
+  document.getElementById("done").style.display = "block";
+});
+document.querySelector("#ask input").addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  const d = document.createElement("div"); d.className = "l you on";
+  d.textContent = "> " + e.target.value; log.appendChild(d); e.target.value = "";
+});
+</script>
+</body>
+</html>

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import date
 from pathlib import Path
@@ -10,7 +11,9 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, Field
 
-ROOT = Path(__file__).resolve().parent.parent
+PACKAGE_ROOT = Path(__file__).resolve().parent.parent
+# Where profile.yaml, cv/, data/, out/ and .env live: the repo, unless JOBRADAR_HOME says else.
+ROOT = Path(os.getenv("JOBRADAR_HOME") or PACKAGE_ROOT).resolve()
 
 
 class Candidate(BaseModel):
@@ -84,7 +87,7 @@ class Profile(BaseModel):
 def load_profile(path: Path | None = None) -> Profile:
     # profile.yaml holds personal data and is gitignored; a fresh clone runs on the example.
     p = path or next(
-        (f for f in (ROOT / "profile.yaml", ROOT / "profile.example.yaml") if f.exists()),
+        (f for f in (ROOT / "profile.yaml", PACKAGE_ROOT / "profile.example.yaml") if f.exists()),
         ROOT / "profile.yaml",
     )
     return Profile.model_validate(yaml.safe_load(p.read_text(encoding="utf-8")))
@@ -92,7 +95,10 @@ def load_profile(path: Path | None = None) -> Profile:
 
 def load_companies(path: Path | None = None) -> list[tuple[str, str, str]]:
     """[(ats, slug, display name)]"""
-    p = path or ROOT / "companies.yaml"
+    p = path or next(
+        (f for f in (ROOT / "companies.yaml", PACKAGE_ROOT / "companies.yaml") if f.exists()),
+        ROOT / "companies.yaml",
+    )
     data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
     return [
         (ats, slug, name) for ats, boards in data.items() for slug, name in (boards or {}).items()
