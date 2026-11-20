@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Job is the common shape every parser produces.
@@ -60,6 +61,27 @@ var (
 	lineBreaks = strings.NewReplacer("\x1c", "\n", "\x1d", "\n", "\x1e", "\n",
 		"\u0085", "\n", " ", "\n", " ", "\n")
 )
+
+var mojibake = regexp.MustCompile("[Â-ô][-¿]")
+
+// FixMojibake undoes UTF-8 text that was decoded as Latin-1 upstream (RemoteOK serves some
+// titles this way). Text that is not double-encoded is returned unchanged.
+func FixMojibake(s string) string {
+	if !mojibake.MatchString(s) {
+		return s
+	}
+	b := make([]byte, 0, len(s))
+	for _, r := range s {
+		if r > 0xFF {
+			return s
+		}
+		b = append(b, byte(r))
+	}
+	if !utf8.Valid(b) {
+		return s
+	}
+	return string(b)
+}
 
 // HTMLToText turns posting HTML into readable plain text with paragraph breaks.
 func HTMLToText(s string) string {

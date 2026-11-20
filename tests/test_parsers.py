@@ -92,3 +92,12 @@ def test_extract_contacts():
     e, p = extract_contacts("mail jobs@acme.io or +20 100 000 0000, not logo@2x.png")
     assert e == ["jobs@acme.io"]
     assert p == ["+201000000000"]
+
+
+def test_fix_mojibake():
+    from jobradar.models import fix_mojibake
+
+    assert fix_mojibake("ML Engineer â\u0080\u0093 Task Design") == "ML Engineer – Task Design"
+    assert fix_mojibake("Youâ\u0080\u0099re") == "You’re"
+    for clean in ("Zürich – Remote", "Café", "İstanbul", "", "Plain"):
+        assert fix_mojibake(clean) == clean

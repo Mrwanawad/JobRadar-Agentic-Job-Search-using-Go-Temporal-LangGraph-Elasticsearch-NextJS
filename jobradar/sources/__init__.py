@@ -9,7 +9,7 @@ from typing import Any
 import feedparser
 import httpx
 
-from jobradar.models import Job, extract_contacts, from_epoch, from_iso, html_to_text
+from jobradar.models import Job, extract_contacts, fix_mojibake, from_epoch, from_iso, html_to_text
 
 REMOTEOK_URL = "https://remoteok.com/api"
 WWR_URL = "https://weworkremotely.com/remote-jobs.rss"
@@ -34,13 +34,13 @@ def parse_remoteok(data: list[dict[str, Any]]) -> list[Job]:
                 Job(
                     source="remoteok",
                     external_id=str(j["id"]),
-                    company=j.get("company", ""),
-                    title=j.get("position", ""),
+                    company=fix_mojibake(j.get("company", "")),
+                    title=fix_mojibake(j.get("position", "")),
                     location=j.get("location") or "Remote",
                     remote=True,
                     url=j["url"],
                     apply_url=j.get("apply_url", ""),
-                    description=html_to_text(j.get("description")),
+                    description=html_to_text(fix_mojibake(j.get("description"))),
                     posted_at=from_iso(j.get("date")) or from_epoch(j.get("epoch")),
                     salary=f"${lo:,}-${hi:,}" if hi else "",
                     tags=list(j.get("tags") or []),

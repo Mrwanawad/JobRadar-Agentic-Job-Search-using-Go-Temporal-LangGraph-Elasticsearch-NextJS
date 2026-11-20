@@ -15,6 +15,20 @@ _NL = re.compile(r"\n{3,}")
 _BLOCK = re.compile(r"<\s*(br|/p|p|/div|/li|li|/h\d)[^>]*>", re.I)
 
 
+_MOJIBAKE = re.compile("[Â-ô][-¿]")
+
+
+def fix_mojibake(s: str | None) -> str:
+    """Undo UTF-8 text that was decoded as Latin-1 upstream ("â" -> "–"). RemoteOK's API
+    serves some titles this way. Text that is not double-encoded is returned unchanged."""
+    if not s or not _MOJIBAKE.search(s):
+        return s or ""
+    try:
+        return s.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return s
+
+
 def html_to_text(s: str | None) -> str:
     if not s:
         return ""

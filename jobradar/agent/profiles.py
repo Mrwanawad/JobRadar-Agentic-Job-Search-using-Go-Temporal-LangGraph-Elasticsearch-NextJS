@@ -24,11 +24,16 @@ REGIONS: dict[str, str] = {
 SENIORITY_EXCLUDE: dict[str, str] = {
     "junior": r"\b(senior|sr\.?|lead|staff|principal|director|head of|vp)\b",
     "mid": r"\b(intern|internship|junior|jr\.?|graduate|staff|principal|director|head of|vp)\b",
-    "senior": r"\b(intern|internship|junior|jr\.?|graduate|new grad|director|vp|vice president)\b",
-    "lead": r"\b(intern|internship|junior|jr\.?|graduate|new grad|vp|vice president)\b",
+    "senior": r"\b(intern|internship|junior|jr\.?|associate|graduate|new grad|director|vp"
+    r"|vice president)\b",
+    "lead": r"\b(intern|internship|junior|jr\.?|associate|graduate|new grad|vp|vice president)\b",
 }
 
-ALWAYS_EXCLUDE = [r"\b(sales|account executive|recruiter|marketing|legal|counsel|accountant)\b"]
+ALWAYS_EXCLUDE = [
+    r"\b(sales|account executive|recruiter|marketing|legal|counsel|accountant)\b",
+    # Customer-facing "engineer" titles that are sales roles.
+    r"\b(value engineer|gtm|go-to-market|solutions? consultant)\b",
+]
 
 
 class DemoForm(BaseModel):
