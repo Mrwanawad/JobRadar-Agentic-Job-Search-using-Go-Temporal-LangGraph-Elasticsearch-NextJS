@@ -3,6 +3,39 @@
 JobRadar turns "find me the right jobs" into one durable workflow per profile. This page
 covers the components, the data they own, and why each one exists.
 
+## Two ways to run it
+
+| | Lite mode (single user) | Platform mode (service) |
+|---|---|---|
+| Runs | `jobradar` CLI on a laptop | Docker Compose |
+| Storage | SQLite (`data/jobradar.db`) | Postgres + Elasticsearch |
+| Orchestration | Sequential stages, each resumable | Temporal workflows |
+| Matching | Regex prefilter + keyword rank + LLM score | Prefilter + hybrid BM25/kNN (RRF) + LLM agents |
+| Applying | Claude Code plugin (`plugin/`) through Claude in Chrome | Drafts approved over the API / MCP |
+| For | Students and job seekers | The hosted demo and multi-user use |
+
+Both share the same profile model (`jobradar/config.py`), prefilter, screening prompt and
+drafting rules, so a profile behaves the same in either mode.
+
+### Lite mode and the applier plugin
+
+```mermaid
+flowchart LR
+    I["jobradar init<br/>CV + questions"] --> P[(profile.yaml · .env)]
+    P --> R["jobradar run<br/>fetch · prefilter · score · draft"]
+    R --> DB[(SQLite: jobs · outbox · processes)]
+    DB --> A["/jobradar:apply<br/>Claude in Chrome fills forms"]
+    DB --> S["/jobradar:send-outreach<br/>approved emails, capped"]
+    A & S -- "jobradar mark / log" --> DB
+    T["/jobradar:track<br/>replies, interviews"] -- "jobradar process" --> DB
+    DB --> UI["jobradar dashboard<br/>localhost"]
+```
+
+Python decides what is allowed (dry-run date, daily cap, one message per recipient, no
+duplicate applications through `jobradar check`); the plugin's skills only act on what the
+CLI returns and write every outcome back through it. `JOBRADAR_HOME` moves the personal files
+(profile, CV, database, logs, `.env`) out of the repo.
+
 ## Components
 
 ```mermaid

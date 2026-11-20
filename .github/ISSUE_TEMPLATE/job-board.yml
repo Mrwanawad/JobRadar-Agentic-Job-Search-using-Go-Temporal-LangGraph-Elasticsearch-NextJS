@@ -1,0 +1,23 @@
+name: New job board or ATS
+description: Suggest a job board, ATS or careers site to fetch from or fill forms on
+labels: [source]
+body:
+  - type: input
+    id: url
+    attributes:
+      label: Example URL
+      description: A public posting or board page on it.
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is needed
+      options: [Fetch postings from it, Fill its application forms, Both]
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Public API or feed, regions it covers, form quirks.

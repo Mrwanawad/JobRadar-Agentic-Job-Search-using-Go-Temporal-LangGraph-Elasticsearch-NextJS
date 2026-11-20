@@ -49,10 +49,10 @@ FLAGS = ["Asks for 6+ years; CV shows 5", "Arabic preferred, not stated in CV", 
 
 # The shortlist the GIFs show, best first: (company, title, location, score, channel, status)
 SHORTLIST = [
-    ("Brightline AI", "Senior AI Engineer, Agents", "Remote (EMEA)", 9.2, "manual", "draft"),
+    ("Brightline AI", "Senior AI Engineer, Agents", "Remote (EMEA)", 9.2, "manual", "sent"),
     ("Lumen Health", "Applied AI Engineer (LLM)", "Dubai, UAE", 8.8, "email", "sent"),
     ("Northwind Analytics", "Forward Deployed Engineer", "Cairo, Egypt", 8.6, "manual", "sent"),
-    ("Juniper Voice", "AI Engineer - Voice Agents", "Remote", 8.4, "manual", "draft"),
+    ("Juniper Voice", "AI Engineer - Voice Agents", "Remote", 8.4, "manual", "sent"),
     ("Cedar Payments", "Machine Learning Engineer", "Riyadh, Saudi Arabia", 8.1, "manual", "sent"),
     ("Tidewater Labs", "LLM Engineer, Evaluation", "Remote (EMEA)", 7.9, "email", "sent"),
     ("Orbital Freight", "AI Platform Engineer", "Berlin, Germany (visa support)", 7.7, "manual",
@@ -159,6 +159,10 @@ def main() -> None:
 
     oid = {r["title"]: r["id"] for r in db.conn.execute(
         "SELECT o.id, j.title FROM outbox o JOIN jobs j USING(uid)")}  # fmt: skip
+    db.upsert_process("Brightline AI", "Senior AI Engineer, Agents", stage="Technical 1 booked",
+                      found_by="pipeline", method="Careers form", found_on="Ashby board",
+                      outbox_id=oid["Senior AI Engineer, Agents"], contacts="Dana (Eng Manager)",
+                      next_step="Thu 3 Dec 14:00")  # fmt: skip
     db.upsert_process("Northwind Analytics", "Forward Deployed Engineer",
                       stage="Technical 2 booked", found_by="pipeline", method="Ashby form",
                       found_on="Ashby board",

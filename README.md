@@ -13,7 +13,7 @@ Agentic job search platform. JobRadar pulls thousands of live postings from ~60 
 ranks them against a CV with hybrid search, has an LLM agent explain every fit, and drafts
 applications that a human approves before anything is sent.
 
-<p align="center"><img src="docs/demo/apply.gif" width="100%" alt="Claude Code runs /jobradar:apply: it checks the candidate has not applied before, fills a careers-page form from the profile and CV, waits for the user's yes, submits and records the application" /></p>
+<p align="center"><img src="docs/demo/apply.gif" width="100%" alt="Claude Code runs /jobradar:apply over five jobs: submits two careers forms on two different ATSs after the user approves, skips one already applied to and one that needs 8+ years, and hands a CAPTCHA back to the user; every result is logged" /></p>
 
 - **Durable pipeline.** Every run is a Temporal workflow: retries, timeouts, live progress
   queries and approval signals come from the workflow engine, not hand-written glue.
@@ -50,9 +50,28 @@ The plugin fills careers-page forms (Workable, Greenhouse, Lever, Ashby, SmartRe
 in Chrome with your profile and CV, never applies twice, stops on CAPTCHAs and logins, and
 submits only on your yes. Full guide: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
 
-<p align="center"><img src="docs/demo/setup.gif" width="100%" alt="Terminal: jobradar init builds a profile from a CV, jobradar run fetches and LLM-scores jobs, jobradar top shows the ranked shortlist with reasons and red flags" /></p>
+### Every stage, in motion
 
-<p align="center"><img src="docs/demo/dashboard.gif" width="100%" alt="Local dashboard: KPIs, interviews in progress with next steps, and every application with how and where it was found" /></p>
+**1. Set up once.** `init` builds your profile from your CV; `doctor` checks keys, CV and limits.
+
+<p align="center"><img src="docs/demo/setup.gif" width="100%" alt="Terminal: jobradar init asks a few questions with defaults read from the CV and writes profile.yaml; jobradar doctor shows OK checks and warns that sending is in dry run for a week" /></p>
+
+**2. Find and rank.** ~60 boards fetched, rule-filtered for free, the rest LLM-scored with reasons;
+drafts written for the best fits.
+
+<p align="center"><img src="docs/demo/find.gif" width="100%" alt="Terminal: jobradar run fetches 11,482 postings, filters to 190 candidates, scores them, drafts applications; jobradar top shows the shortlist with reasons and red flags; jobradar outbox lists drafts for forms and emails" /></p>
+
+**3. Apply in batches** (top of this page): duplicate check, honest knockout answers, your approval,
+CAPTCHAs handed back.
+
+**4. On a schedule.** A dry-run week first, then a daily run that sends at most your cap.
+
+<p align="center"><img src="docs/demo/schedule.gif" width="100%" alt="Terminal: sendable is blocked during the dry run; install_schedule.ps1 registers a 09:00 daily task, cron does the same on macOS/Linux; the next morning's log shows fetch, score, draft, shortlist export and three emails sent within the daily cap" /></p>
+
+**5. Track replies and interviews.** Tell Claude what the recruiter said; the dashboard shows
+every process, method, source and application.
+
+<p align="center"><img src="docs/demo/track.gif" width="100%" alt="Claude Code records a recruiter reply as an interview stage with the next step; the local dashboard shows KPIs, interviews with next steps, applications by method and source, and every application" /></p>
 
 The demos use a made-up candidate and companies; regenerate them with the scripts in
 [docs/demo/](docs/demo/).

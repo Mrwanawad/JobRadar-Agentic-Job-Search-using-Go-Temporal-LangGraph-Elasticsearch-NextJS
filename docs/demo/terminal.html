@@ -3,111 +3,198 @@
 <head>
 <meta charset="utf-8">
 <title>Terminal</title>
-<!-- Replays JobRadar CLI sessions for the README GIF (docs/demo/scene_setup.py). Output text is
-     what the CLI prints; run figures come from the synthetic demo home (docs/demo/seed.py). -->
+<!-- Replays JobRadar sessions for the README GIFs (docs/demo/scene_*.py). Command output is the
+     text the CLI and the plugin print; figures come from the synthetic demo home (seed.py).
+     ?mode=claude shows a Claude Code transcript instead of a shell. -->
 <style>
   :root { --bg: #1f2023; --fg: #e8e3d8; --dim: #8e9099; --ok: #9cc28a; --warn: #d9b26a;
-          --score: #e2a663; --path: #8fb3d9; }
+          --bad: #d98a7a; --score: #e2a663; --path: #8fb3d9; }
   html, body { margin: 0; height: 100%; background: var(--bg); }
-  body { font: 19px/1.5 Consolas, "Cascadia Mono", monospace; color: var(--fg);
+  body { font: 18px/1.5 Consolas, "Cascadia Mono", monospace; color: var(--fg);
          padding: 22px 26px; box-sizing: border-box; overflow: hidden; }
-  .line { white-space: pre-wrap; min-height: 1.55em; }
+  .line { white-space: pre-wrap; min-height: 1.5em; }
   .dim { color: var(--dim); } .ok { color: var(--ok); } .warn { color: var(--warn); }
-  .score { color: var(--score); font-weight: bold; } .path { color: var(--path); }
+  .bad { color: var(--bad); } .score { color: var(--score); font-weight: bold; }
+  .path { color: var(--path); } .b { font-weight: bold; color: #fff; }
   .prompt .who { color: var(--ok); } .prompt .cwd { color: var(--path); }
-  input { all: unset; color: var(--fg); caret-color: var(--fg); width: 70%; }
+  .cc { color: #fff; }
+  input { all: unset; color: var(--fg); caret-color: var(--fg); width: 62%; }
+  body.claude input { width: 96%; }
+  #hd { position: absolute; top: 0; left: 0; right: 0; padding: 12px 26px; color: var(--dim);
+        border-bottom: 1px solid #34363b; font-weight: bold; display: none; }
+  body.claude #hd { display: block; }
   #screen { position: absolute; left: 26px; right: 26px; bottom: 22px; }
 </style>
 </head>
 <body>
+<div id="hd">Claude Code  ·  ~/jobradar</div>
 <div id="screen"></div>
 <script>
+const CLAUDE = new URLSearchParams(location.search).get("mode") === "claude";
+if (CLAUDE) document.body.classList.add("claude");
 const screen = document.getElementById("screen");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
-function line(html = "") {
+function line(html = "", id = "") {
   const d = document.createElement("div");
-  d.className = "line"; d.innerHTML = html; screen.appendChild(d);
-  while (screen.children.length > 40) screen.firstChild.remove();
+  d.className = "line"; d.innerHTML = html; if (id) d.id = id; screen.appendChild(d);
+  while (screen.children.length > 60) screen.firstChild.remove();
   return d;
 }
 
 function prompt() {
-  const d = line(`<span class="prompt"><span class="who">sam@laptop</span> <span class="cwd">~/jobradar</span> $ </span>`);
+  const head = CLAUDE ? `<span class="cc">&gt; </span>`
+    : `<span class="prompt"><span class="who">sam@laptop</span> <span class="cwd">~/jobradar</span> $ </span>`;
+  const d = line(head);
   const inp = document.createElement("input");
   inp.setAttribute("aria-label", "command");
   d.appendChild(inp); inp.focus();
   inp.addEventListener("keydown", async e => {
     if (e.key !== "Enter") return;
     const cmd = inp.value; inp.replaceWith(document.createTextNode(cmd));
-    await play(SESSIONS[cmd.trim()] || [[0, `<span class="warn">unknown demo command</span>`]]);
+    await play(SESSIONS[cmd.trim()] || [[0, `<span class="bad">unknown demo command</span>`]]);
     prompt();
   });
 }
 
 async function typeInto(el, text) {
-  for (const ch of text) { el.textContent += ch; await sleep(55 + Math.random() * 40); }
+  for (const ch of text) { el.textContent += ch; await sleep(70 + Math.random() * 40); }
 }
 
 async function play(steps) {
   for (const s of steps) {
-    if (Array.isArray(s)) { await sleep(s[0]); line(s[1]); continue; }
-    // {q: question, a: typed answer}
-    await sleep(s.wait ?? 260);
+    if (Array.isArray(s)) { await sleep(s[0]); line(s[1], s[2] || ""); continue; }
+    await sleep(s.wait ?? 420);           // {q: question, a: typed answer}
     const d = line(esc(s.q));
-    const ans = document.createElement("span"); d.appendChild(ans);
-    await sleep(380); await typeInto(ans, s.a); await sleep(200);
+    const ans = document.createElement("span"); ans.className = "b"; d.appendChild(ans);
+    await sleep(450); await typeInto(ans, s.a); await sleep(350);
   }
 }
 
 const D = t => `<span class="dim">${t}</span>`;
+const OK = t => `<span class="ok">${t}</span>`;
+const W = t => `<span class="warn">${t}</span>`;
+const S = t => `<span class="score">${t}</span>`;
+const P = t => `<span class="path">${t}</span>`;
 const SESSIONS = {
+  // ---- setup.gif ---------------------------------------------------------------------------
   "uv run jobradar init --cv ~/Documents/sam-rivera-cv.pdf": [
     [300, "1/3  LLM key (free tiers are enough)"],
-    {q: "     provider [gemini]: ", a: ""},
-    [120, D("     get a free key: https://aistudio.google.com/apikey")],
+    {q: "     provider [gemini]: ", a: "gemini"},
+    [150, D("     get a free key: https://aistudio.google.com/apikey")],
     {q: "     API key: ", a: ""},
-    [200, "2/3  CV"],
-    [900, D("     read your CV; press Enter to keep a suggestion")],
-    [200, "3/3  About you and the jobs you want"],
+    [300, "2/3  CV"],
+    [1100, D("     read your CV; press Enter to keep a suggestion")],
+    [300, "3/3  About you and the jobs you want"],
     {q: "     full name: ", a: "Sam Rivera"},
     {q: "     city, country you live in [Cairo, Egypt]: ", a: ""},
     {q: "     job titles to search [AI Engineer, ML Engineer, Applied AI Engineer]: ", a: ""},
     {q: "     seniority [senior]: ", a: ""},
-    {q: "     remote regions you can work from [worldwide]: ", a: "worldwide, emea, mena"},
+    {q: "     remote regions you can work from: ", a: "worldwide, emea, mena"},
+    {q: "     on-site cities/countries: ", a: "Dubai, Riyadh, Doha"},
     {q: "     need visa sponsorship outside your country? [Y/n]: ", a: "y"},
+    {q: "     key skills [python, llm, rag, langgraph, fastapi, aws]: ", a: ""},
     {q: "     email for applications: ", a: "sam.rivera@example.com"},
-    [300, ""],
-    [100, `<span class="ok">wrote profile.yaml.</span> Nothing is sent before 2026-11-27 (dry run), then max 5/day.`],
-    [100, `Next: <span class="path">jobradar doctor</span>, then <span class="path">jobradar run</span>.`],
+    [400, ""],
+    [100, `${OK("wrote profile.yaml.")} Nothing is sent before 2026-11-27 (dry run), then max 5/day.`, "wrote"],
+    [100, `Next: ${P("jobradar doctor")}, then ${P("jobradar run")}.`],
   ],
+  "uv run jobradar doctor": [
+    [500, `${OK("OK   ")} profile.yaml    Sam Rivera`],
+    [250, `${OK("OK   ")} CV              cv.pdf, 1404 characters`],
+    [250, `${OK("OK   ")} LLM keys        gemini`],
+    [250, `${OK("OK   ")} companies.yaml  52 company boards (plus public job feeds)`],
+    [250, `${W("WARN ")} sending         <span id="dry">dry run until 2026-11-27: drafts only</span>`],
+    [250, `${W("WARN ")} cv_link         empty: email applications stay unsent until you add one`],
+    [250, `${W("WARN ")} answers         blank (the plugin will ask you): notice_period, salary`, "docdone"],
+  ],
+  // ---- find.gif ----------------------------------------------------------------------------
   "uv run jobradar run": [
-    [1600, "fetched 11482, new 2434, failed sources 0"],
-    [500, "prefilter: {'candidate': 190, 'filtered': 2095, 'duplicate': 149}"],
-    [700, `  <span class="score">9.2</span>  Brightline AI - Senior AI Engineer, Agents`],
-    [380, `  <span class="score">8.8</span>  Lumen Health - Applied AI Engineer (LLM)`],
-    [380, `  <span class="score">5.1</span>  Cobalt Maps - Staff Data Scientist`],
-    [380, `  <span class="score">8.6</span>  Northwind Analytics - Forward Deployed Engineer`],
-    [380, `  <span class="score">3.4</span>  Harbor Insurance - Backend Engineer`],
-    [380, `  <span class="score">8.4</span>  Juniper Voice - AI Engineer - Voice Agents`],
-    [400, "scored 54"],
-    [800, "drafted {'email': 2, 'whatsapp': 0, 'manual': 6}"],
+    [1800, "fetched 11482, new 2434, failed sources 0"],
+    [600, "prefilter: {'candidate': 190, 'filtered': 2095, 'duplicate': 149}"],
+    [900, `  ${S("9.2")}  Brightline AI - Senior AI Engineer, Agents`],
+    [450, `  ${S("8.8")}  Lumen Health - Applied AI Engineer (LLM)`],
+    [450, `  ${S("5.1")}  Cobalt Maps - Staff Data Scientist`],
+    [450, `  ${S("8.6")}  Northwind Analytics - Forward Deployed Engineer`],
+    [450, `  ${S("3.4")}  Harbor Insurance - Backend Engineer`],
+    [450, `  ${S("8.4")}  Juniper Voice - AI Engineer - Voice Agents`],
+    [450, `  ${S("7.7")}  Orbital Freight - AI Platform Engineer`],
+    [450, `  ${S("8.1")}  Cedar Payments - Machine Learning Engineer`],
+    [600, "scored 54"],
+    [900, "drafted {'email': 2, 'whatsapp': 0, 'manual': 6}", "drafted"],
   ],
   "uv run jobradar top --min 8.5": [
-    [250, ` <span id="best"><span class="score">9.2</span>  Brightline AI - Senior AI Engineer, Agents</span>`],
-    [40, `      Remote (EMEA) | <span class="ok">eligible</span> | contact: -`],
-    [40, `      + Production RAG and agents match the core of the role; evals asked for`],
-    [40, `      - Arabic preferred, not stated in CV`],
-    [120, ` <span class="score">8.8</span>  Lumen Health - Applied AI Engineer (LLM)`],
-    [40, `      Dubai, UAE | <span class="ok">eligible</span> | contact: careers@lumen.example.com`],
-    [40, `      + FastAPI + LangGraph stack named in the posting`],
-    [40, `      - On-call rotation`],
-    [120, ` <span class="score">8.6</span>  Northwind Analytics - Forward Deployed Engineer`],
-    [40, `      Cairo, Egypt | <span class="ok">eligible</span> | contact: -`],
-    [40, `      + Customer-facing agent builds match the brief; based in Cairo`],
-    [40, `      - Asks for 6+ years; CV shows 5`],
-    [120, `3 jobs. DB: {'candidate': 136, 'duplicate': 149, 'filtered': 2095, 'scored': 54}`],
+    [250, ` <span id="best">${S("9.2")}  Brightline AI - Senior AI Engineer, Agents</span>`],
+    [60, `      Remote (EMEA) | ${OK("eligible")} | contact: -`],
+    [60, `      + Production RAG and agents match the core of the role; evals asked for`],
+    [60, `      - Arabic preferred, not stated in CV`],
+    [150, ` ${S("8.8")}  Lumen Health - Applied AI Engineer (LLM)`],
+    [60, `      Dubai, UAE | ${OK("eligible")} | contact: careers@lumen.example.com`],
+    [60, `      + FastAPI + LangGraph stack named in the posting`],
+    [60, `      - On-call rotation`],
+    [150, ` ${S("8.6")}  Northwind Analytics - Forward Deployed Engineer`],
+    [60, `      Cairo, Egypt | ${OK("eligible")} | contact: -`],
+    [60, `      + Customer-facing agent builds match the brief; based in Cairo`],
+    [60, `      - Asks for 6+ years; CV shows 5`],
+    [150, `3 jobs. DB: {'candidate': 136, 'duplicate': 149, 'filtered': 2095, 'scored': 54}`, "topdone"],
+  ],
+  "uv run jobradar outbox --status draft": [
+    [250, `#1    draft    manual    ${S("9.2")}  Brightline AI - Senior AI Engineer, Agents`],
+    [40, D("      to: https://jobs.example.com/brightline-ai/senior-ai-engineer")],
+    [120, `#2    draft    email     ${S("8.8")}  Lumen Health - Applied AI Engineer (LLM)`],
+    [40, D("      to: careers@lumen.example.com")],
+    [120, `#4    draft    manual    ${S("8.4")}  Juniper Voice - AI Engineer - Voice Agents`],
+    [40, D("      to: https://boards.example.com/juniper-voice/ai-engineer")],
+    [120, `#5    draft    manual    ${S("8.1")}  Cedar Payments - Machine Learning Engineer`],
+    [40, D("      to: https://cedar.example.com/apply/ml-engineer")],
+    [120, `#6    draft    email     ${S("7.9")}  Tidewater Labs - LLM Engineer, Evaluation`],
+    [40, D("      to: talent@tidewater.example.com")],
+    [120, `#7    draft    manual    ${S("7.7")}  Orbital Freight - AI Platform Engineer`],
+    [40, D("      to: https://jobs.example.com/orbital-freight/ai-platform")],
+    [120, "6 items", "outdone"],
+  ],
+  // ---- schedule.gif ------------------------------------------------------------------------
+  "uv run jobradar sendable": [
+    [300, `{"blocked": "dry run until 2026-11-27", "items": []}`, "blocked"],
+  ],
+  "powershell -File scripts/install_schedule.ps1 -At 09:00": [
+    [900, ""],
+    [100, "TaskPath    TaskName    State"],
+    [60, "--------    --------    -----"],
+    [60, `\\           JobRadar    ${OK("Ready")}`, "installed"],
+  ],
+  "crontab -l": [
+    [300, D("# macOS / Linux: same daily run")],
+    [100, `0 9 * * * ~/jobradar/scripts/daily.sh`, "cron"],
+  ],
+  "cat out/logs/2026-11-28.log": [
+    [300, D("=== run 09:00:04 ===")],
+    [80, "fetched 11520, new 318, failed sources 0"],
+    [80, "prefilter: {'candidate': 21, 'filtered': 271, 'duplicate': 26}"],
+    [80, "scored 21"],
+    [80, "drafted {'email': 3, 'whatsapp': 0, 'manual': 4}"],
+    [80, D("=== shortlist 09:14:40 ===")],
+    [80, "wrote out/shortlist.xlsx"],
+    [80, D("=== send 09:15:02 ===")],
+    [80, `#2  email  careers@lumen.example.com      -> ${OK("sent")}`],
+    [80, `#6  email  talent@tidewater.example.com   -> ${OK("sent")}`],
+    [80, `#9  email  jobs@saffron.example.com       -> ${OK("sent")}`, "logdone"],
+  ],
+  // ---- track.gif (Claude Code) -------------------------------------------------------------
+  "/jobradar:track Brightline replied: interview Thu 3 Dec 14:00 with Dana (Eng Manager)": [
+    [700, `<span class="ok">●</span> uv run jobradar check "Brightline AI"`],
+    [300, D(`  #1   sent   2026-11-20 Brightline AI - Senior AI Engineer, Agents  (manual)`)],
+    [700, `<span class="ok">●</span> uv run jobradar process "Brightline AI" "Senior AI Engineer, Agents"`],
+    [60, D(`    --stage "Technical 1 booked" --found-by pipeline --method "Careers form"`)],
+    [60, D(`    --outbox-id 1 --contacts "Dana (Eng Manager)" --next-step "Thu 3 Dec 14:00"`)],
+    [400, D("  process #4 saved")],
+    [500, ""],
+    [100, `Recorded. Active processes:`],
+    [100, `  ${S("Brightline AI")}        Technical 1 booked   next: Thu 3 Dec 14:00`],
+    [100, `  ${S("Northwind Analytics")}  Technical 2 booked   next: System design, Thu 14:00`],
+    [100, `  ${S("Lumen Health")}         HR screen done       next: Take-home due Monday`],
+    [100, `  ${S("Fennec Travel")}        Offer received       next: Decide by Friday`, "trackdone"],
   ],
 };
 prompt();

@@ -49,8 +49,27 @@ The demo form is turned into prefilter regexes with every user value escaped
 OAuth requests only basic profile scopes (`openid profile email` for Google, none for
 GitHub). No OAuth tokens are stored.
 
-Demo runs never send anything: outreach sending exists only in the personal CLI, behind a
+Demo runs never send anything: outreach sending exists only in lite mode, behind a
 dry-run date, daily caps and per-recipient deduplication.
+
+## Applier agent guardrails (lite mode + plugin)
+
+The Claude Code plugin acts in the user's own browser session, so its limits are written into
+the skills and enforced by the CLI where possible:
+
+- **No fabrication.** Form answers come from `profile.yaml` (`candidate`, `answers`) and the
+  CV text only. Knockout questions get the truthful answer. Unknown required answers are asked.
+- **No duplicates.** `jobradar check <company>` runs before every application; every submit is
+  recorded with `jobradar mark` / `jobradar log`.
+- **Human approval.** Each submit is confirmed by the user unless they waive it for that
+  session. Emails go out only through `jobradar sendable`, which applies the dry-run date,
+  the daily cap and per-recipient deduplication.
+- **Hand-back, never bypass.** CAPTCHAs, logins, account creation, payment or ID requests and
+  "do not use AI" essays stop the job and leave the tab to the user. The agent never types
+  passwords or payment details.
+- **No LinkedIn automation.** LinkedIn's terms forbid it; the plugin does not touch it.
+- **Local data.** Profile, CV, database and logs stay on the user's machine (gitignored, or
+  under `JOBRADAR_HOME`). CV text goes only to the LLM provider the user configured.
 
 ## Secrets
 

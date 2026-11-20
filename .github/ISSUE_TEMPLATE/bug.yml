@@ -1,0 +1,28 @@
+name: Bug
+description: Something in JobRadar does not work
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, what you got. Paste the exact error.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`uv run jobradar doctor` output"
+      description: Remove anything personal (names, emails, keys) before pasting.
+      render: text
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options: [Lite mode (CLI), Claude Code plugin, Platform (Docker)]
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and Python version

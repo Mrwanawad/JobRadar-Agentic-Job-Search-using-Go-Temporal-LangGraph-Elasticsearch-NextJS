@@ -4,6 +4,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-20
+
 ### Added
 - Open for anyone to run as their own job applier agent:
   - `jobradar init`: profile.yaml and .env from a CV and a few questions (titles, skills and
@@ -16,6 +18,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     forms through Claude in Chrome, with per-ATS notes), `send-outreach`, `track`.
   - `answers` section in profile.yaml for standing form answers; `docs/GETTING_STARTED.md`,
     `CONTRIBUTING.md`, `scripts/daily.sh` (cron) for macOS/Linux.
+  - `JOBRADAR_HOME`: keep profile, CV, database, logs and `.env` outside the repo.
+  - README demo GIFs for every stage (setup, find, batch apply, schedule, track), recorded
+    from a synthetic demo home (`docs/demo/`), plus issue and pull request templates.
 - Evals: 52 hand-labeled real postings for a synthetic persona; prefilter precision/recall
   gate in CI (`tests/test_evals.py`); LLM screening eval (`evals/screening.py`) with band,
   within-one-band and AUC gates, run by the on-demand/weekly `evals` workflow.
