@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pipeline</title>
+<!-- README GIF "inside the agent" (docs/demo/scene_pipeline.py). Stage names, graph nodes,
+     RRF k=60, MAX_REPAIRS/MAX_REVISIONS and the 8.0 critic pass mark match the code
+     (orchestrator/internal/workflows/radar.go, jobradar/agent/graphs.py, search.py).
+     Figures and the job are from the synthetic demo home. -->
+<style>
+  :root { --ink: #1d232b; --muted: #5d6670; --line: #dcd7cc; --paper: #fbfaf7; --card: #fff;
+          --accent: #8a5a2b; --ok: #3f7a4f; --bad: #a4483a; --warn: #9a6b16; --soft: #f3efe6; }
+  * { box-sizing: border-box; }
+  html { zoom: 1.2; }
+  html, body { margin: 0; height: 100%; }
+  body { display: grid; grid-template-columns: 250px 1fr; background: var(--paper); color: var(--ink);
+         font: 15px/1.45 Georgia, serif; overflow: hidden; }
+  h2 { font: 26px/1.15 "GFS Didot", Didot, "Bodoni MT", serif; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .lbl { font: bold 13px "Times New Roman", serif; letter-spacing: .02em; color: var(--muted); }
+  code, .mono { font: 13.5px/1.45 Consolas, monospace; }
+
+  /* rail */
+  #rail { border-right: 1px solid var(--line); padding: 18px 16px; background: #f7f5f0; }
+  #rail .brand { font: 24px "GFS Didot", Didot, serif; margin-bottom: 2px; }
+  #rail .wf { font: 12px Consolas, monospace; color: var(--muted); margin-bottom: 14px; }
+  .st { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center;
+        padding: 7px 8px; border-radius: 6px; color: #9a9890; transition: all .3s; }
+  .st .n { font: 15px "GFS Didot", Didot, serif; color: #b3aea2; }
+  .st .t { font: bold 14px "Times New Roman", serif; }
+  .st .c { font: 12.5px Consolas, monospace; white-space: nowrap; }
+  .st.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 0 var(--line), 0 0 0 1px var(--line); }
+  .st.on .n { color: var(--accent); }
+  .st.done { color: var(--ink); } .st.done .c { color: var(--ok); }
+  .st .w { display: block; font: 12px Georgia, serif; color: var(--muted); font-weight: normal; }
+
+  /* inspector */
+  #main { padding: 22px 28px; overflow: hidden; position: relative; }
+  .view { display: none; } .view.on { display: block; animation: in .4s ease; }
+  @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .row { display: grid; gap: 14px; }
+
+  /* fetch */
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .src { border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; background: #fff;
+         display: flex; justify-content: space-between; font-size: 14px; opacity: .35; transition: opacity .3s; }
+  .src.ok { opacity: 1; } .src b { font: 13px Consolas, monospace; color: var(--ok); }
+  .big { font: 44px "GFS Didot", Didot, serif; }
+
+  /* prefilter */
+  .vd { display: grid; grid-template-columns: 1fr 240px; gap: 10px; padding: 9px 12px; border: 1px solid var(--line);
+        border-radius: 6px; background: #fff; margin-bottom: 8px; opacity: 0; transition: opacity .35s; }
+  .vd.on { opacity: 1; } .vd .why { font: 13px Consolas, monospace; }
+  .x { color: var(--bad); } .y { color: var(--ok); }
+  .funnel div { display: grid; grid-template-columns: 160px 1fr 70px; gap: 10px; align-items: center; margin: 5px 0; }
+  .bar { height: 12px; background: var(--soft); border-radius: 3px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width 1s ease; }
+
+  /* search */
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  td, th { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+  th { font: bold 13px "Times New Roman", serif; color: var(--muted); }
+  tr.hl td { background: #f7ead6; }
+  .formula { font: 15px Consolas, monospace; background: var(--soft); padding: 8px 12px; border-radius: 6px; }
+
+  /* graphs */
+  svg { width: 100%; max-width: 660px; height: auto; display: block; }
+  svg text { font: bold 14px "Times New Roman", serif; }
+  .node rect { fill: #fff; stroke: #b9b2a3; stroke-width: 1.5; rx: 8; transition: all .3s; }
+  .node.act rect { fill: #f7ead6; stroke: var(--accent); stroke-width: 2.5; }
+  .node.bad rect { fill: #f6e1dc; stroke: var(--bad); }
+  .node.good rect { fill: #e2efe4; stroke: var(--ok); }
+  .edge { stroke: #b9b2a3; stroke-width: 1.6; fill: none; marker-end: url(#ar); }
+  .json { font: 13px/1.5 Consolas, monospace; white-space: pre; background: #1f2023; color: #e8e3d8;
+          border-radius: 8px; padding: 10px 14px; min-height: 120px; }
+  .json .k { color: #8fb3d9; } .json .s { color: #b9d39f; } .json .n { color: #e2a663; }
+  .json .e { color: #e8907e; }
+  .letter { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font-size: 14.5px; }
+  .letter del { color: var(--bad); text-decoration-thickness: 2px; }
+  .letter .flag { background: #f6e1dc; }
+
+  /* results */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .kpi { background: #fff; border: 1px solid var(--line); border-left: 6px solid var(--accent); border-radius: 6px; padding: 8px 12px; }
+  .kpi .v { font: 30px "GFS Didot", Didot, serif; } .kpi .l { font: bold 12.5px "Times New Roman", serif; color: var(--muted); }
+  .tag { white-space: nowrap; font: bold 12px "Times New Roman", serif; border: 1px solid currentColor; border-radius: 3px; padding: 1px 6px; }
+</style>
+</head>
+<body>
+<aside id="rail">
+  <div class="brand">JobRadar</div>
+  <div class="wf">RadarWorkflow<br>radar-personal-2026-11-28</div>
+  <div class="st" id="s1"><span class="n">1</span><span class="t">Fetch<span class="w">Go ingest worker</span></span><span class="c" id="c1"></span></div>
+  <div class="st" id="s2"><span class="n">2</span><span class="t">Prefilter<span class="w">rules, no LLM</span></span><span class="c" id="c2"></span></div>
+  <div class="st" id="s3"><span class="n">3</span><span class="t">Hybrid match<span class="w">BM25 + embeddings, RRF</span></span><span class="c" id="c3"></span></div>
+  <div class="st" id="s4"><span class="n">4</span><span class="t">Screening agent<span class="w">LangGraph</span></span><span class="c" id="c4"></span></div>
+  <div class="st" id="s5"><span class="n">5</span><span class="t">Writer + critic<span class="w">LangGraph</span></span><span class="c" id="c5"></span></div>
+  <div class="st" id="s6"><span class="n">6</span><span class="t">Your approval<span class="w">Temporal signal</span></span><span class="c" id="c6"></span></div>
+  <div class="st" id="s7"><span class="n">7</span><span class="t">Apply + track<span class="w">Claude Code plugin</span></span><span class="c" id="c7"></span></div>
+</aside>
+
+<section id="main">
+  <!-- 1 fetch -->
+  <div class="view" id="v1">
+    <h2>Fetch every board in parallel</h2>
+    <p class="sub">56 sources (52 company boards on 5 ATSs + 4 public feeds), one Temporal activity each, 8 at a time, retried on failure. A broken board never stops the run.</p>
+    <div class="grid" id="srcs"></div>
+    <div style="margin-top:16px;display:flex;gap:28px;align-items:baseline">
+      <div><div class="lbl">POSTINGS FETCHED</div><div class="big" id="fetched">0</div></div>
+      <div><div class="lbl">NEW SINCE LAST RUN</div><div class="big" id="newc">0</div></div>
+      <div><div class="lbl">FAILED SOURCES</div><div class="big">0</div></div>
+    </div>
+  </div>
+
+  <!-- 2 prefilter -->
+  <div class="view" id="v2">
+    <h2>Prefilter: free rules from your profile</h2>
+    <p class="sub">Title, seniority, location and age rules from profile.yaml. Spends no LLM quota.</p>
+    <div class="vd"><span>Account Executive, EMEA · Dubai</span><span class="why x">title excluded</span></div>
+    <div class="vd"><span>Senior ML Engineer · Remote - US</span><span class="why x">remote locked to another region</span></div>
+    <div class="vd"><span>Junior Data Analyst · Cairo</span><span class="why x">title not a target role</span></div>
+    <div class="vd"><span>ML Engineer · Berlin (no visa mentioned)</span><span class="why x">on-site abroad, no sponsorship</span></div>
+    <div class="vd" id="keep"><span><b>Senior AI Engineer, Agents</b> · Brightline AI · Remote (EMEA)</span><span class="why y">title match · remote, open region</span></div>
+    <div class="funnel card" style="margin-top:10px">
+      <div><span class="lbl">NEW POSTINGS</span><span class="bar"><i data-w="100"></i></span><span class="mono">2,434</span></div>
+      <div><span class="lbl">FILTERED OUT</span><span class="bar"><i data-w="86"></i></span><span class="mono">2,095</span></div>
+      <div><span class="lbl">DUPLICATES</span><span class="bar"><i data-w="6"></i></span><span class="mono">149</span></div>
+      <div><span class="lbl">CANDIDATES</span><span class="bar"><i data-w="8"></i></span><span class="mono">190</span></div>
+    </div>
+  </div>
+
+  <!-- 3 hybrid -->
+  <div class="view" id="v3">
+    <h2>Hybrid match against your CV</h2>
+    <p class="sub">Elasticsearch BM25 for exact skills, local embeddings (bge-small, on CPU: your CV never goes to an embedding API) for meaning. Fused with Reciprocal Rank Fusion.</p>
+    <div class="row" style="grid-template-columns:1fr 1fr">
+      <div class="card"><div class="lbl">BM25 (KEYWORDS)</div>
+        <table><tr><th>#</th><th>Job</th></tr>
+          <tr><td>1</td><td>Lumen Health · Applied AI Engineer</td></tr>
+          <tr><td>2</td><td>Tidewater Labs · LLM Engineer</td></tr>
+          <tr class="hl"><td>3</td><td>Brightline AI · Senior AI Engineer</td></tr>
+          <tr><td>4</td><td>Cedar Payments · ML Engineer</td></tr></table></div>
+      <div class="card"><div class="lbl">EMBEDDINGS (MEANING)</div>
+        <table><tr><th>#</th><th>Job</th></tr>
+          <tr class="hl"><td>1</td><td>Brightline AI · Senior AI Engineer</td></tr>
+          <tr><td>2</td><td>Juniper Voice · AI Engineer - Voice</td></tr>
+          <tr><td>3</td><td>Northwind · Forward Deployed Eng.</td></tr>
+          <tr><td>4</td><td>Lumen Health · Applied AI Engineer</td></tr></table></div>
+    </div>
+    <div class="formula" style="margin-top:12px" id="rrf">RRF(job) = Σ 1 / (60 + rank)  →  Brightline 1/63 + 1/61 = <b>0.0323</b>, Lumen 1/61 + 1/64 = 0.0320</div>
+  </div>
+
+  <!-- 4 screening -->
+  <div class="view" id="v4">
+    <h2>Screening agent: an honest 0-10 fit</h2>
+    <p class="sub">The LLM reads CV + posting and must return valid JSON. Bad output is repaired (max 2), then the score is calibrated: ineligible location caps it at 3.</p>
+    <svg width="760" height="120" viewBox="0 0 760 120">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#b9b2a3"/></marker></defs>
+      <path class="edge" d="M150,40 L230,40"/><path class="edge" d="M370,40 L450,40"/>
+      <path class="edge" d="M590,40 L660,40"/>
+      <path class="edge" d="M300,62 C300,105 120,105 82,64"/>
+      <g class="node" id="n-assess"><rect x="12" y="18" width="138" height="44"/><text x="81" y="45" text-anchor="middle">assess (LLM)</text></g>
+      <g class="node" id="n-validate"><rect x="232" y="18" width="138" height="44"/><text x="301" y="45" text-anchor="middle">validate</text></g>
+      <g class="node" id="n-calibrate"><rect x="452" y="18" width="138" height="44"/><text x="521" y="45" text-anchor="middle">calibrate</text></g>
+      <g class="node" id="n-end"><rect x="662" y="18" width="86" height="44"/><text x="705" y="45" text-anchor="middle">score</text></g>
+      <g class="node" id="n-repair"><rect x="150" y="80" width="110" height="34"/><text x="205" y="102" text-anchor="middle">repair</text></g>
+    </svg>
+    <div class="json" id="screenjson"></div>
+  </div>
+
+  <!-- 5 writer -->
+  <div class="view" id="v5">
+    <h2>Writer + critic: no invented facts</h2>
+    <p class="sub">The critic checks every claim against the CV. Fabrications or a score under 8 send it back; revisions delete flagged claims (max 2).</p>
+    <svg width="760" height="70" viewBox="0 0 760 70">
+      <path class="edge" d="M150,30 L230,30"/><path class="edge" d="M370,30 L450,30"/>
+      <path class="edge" d="M520,52 C520,70 300,70 300,54"/>
+      <g class="node" id="n-draft"><rect x="12" y="8" width="138" height="44"/><text x="81" y="35" text-anchor="middle">draft (LLM)</text></g>
+      <g class="node" id="n-critique"><rect x="232" y="8" width="138" height="44"/><text x="301" y="35" text-anchor="middle">critique (LLM)</text></g>
+      <g class="node" id="n-revise"><rect x="452" y="8" width="138" height="44"/><text x="521" y="35" text-anchor="middle">revise</text></g>
+      <g class="node" id="n-save"><rect x="620" y="8" width="128" height="44"/><text x="684" y="35" text-anchor="middle">saved draft</text></g>
+    </svg>
+    <div class="row" style="grid-template-columns:1.25fr 1fr;margin-top:6px">
+      <div class="letter" id="letter">Your agents team ships customer-facing LLM workflows, which is what I have built for three years.
+        <span id="fab" class="flag">I led a team of eight engineers through two product launches.</span>
+        At Nilecart I built a RAG support assistant that resolves 40% of tickets without escalation, with the offline eval set and CI gate I designed. I also shipped an agent that turns scanned forms into structured JSON, cutting onboarding from 3 days to 4 hours.</div>
+      <div class="json" id="critic"></div>
+    </div>
+  </div>
+
+  <!-- 6 approval -->
+  <div class="view" id="v6">
+    <h2>Nothing goes out without you</h2>
+    <p class="sub">The workflow pauses on an <code>approval</code> signal: approve over the API or the MCP tools, or answer the plugin's "Submit?" prompt. Dry run, daily cap and one message per recipient still apply.</p>
+    <div class="card" style="max-width:720px">
+      <div class="lbl">DRAFT #1 · CAREERS FORM · SCORE 9.2 · CRITIC 8.6</div>
+      <p style="margin:6px 0 10px"><b>Brightline AI · Senior AI Engineer, Agents</b> · Remote (EMEA)</p>
+      <div class="mono" style="color:var(--muted)">approve_draft(profile_id="owner", outbox_id=1, approve=true)</div>
+      <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+        <span class="tag y" id="approved" style="opacity:0;transition:opacity .4s">APPROVED · signal delivered to radar-personal-2026-11-28</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7 results -->
+  <div class="view" id="v7">
+    <h2>Results</h2>
+    <p class="sub">The plugin applies through careers pages, logs every outcome, and tracks replies. One morning's run:</p>
+    <div class="kpis">
+      <div class="kpi"><div class="v">11,482</div><div class="l">POSTINGS READ</div></div>
+      <div class="kpi"><div class="v">190</div><div class="l">PASSED THE RULES</div></div>
+      <div class="kpi"><div class="v">54</div><div class="l">LLM-SCORED</div></div>
+      <div class="kpi"><div class="v">8</div><div class="l">DRAFTS, CRITIC-CHECKED</div></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <table>
+        <tr><th>Score</th><th>Company · role</th><th>Outcome</th><th>Next step</th></tr>
+        <tr class="hl"><td>9.2</td><td>Brightline AI · Senior AI Engineer, Agents</td><td><span class="tag y">SUBMITTED</span></td><td>Interview Thu 3 Dec</td></tr>
+        <tr><td>8.8</td><td>Lumen Health · Applied AI Engineer (LLM)</td><td><span class="tag y">EMAILED</span></td><td>Take-home due Monday</td></tr>
+        <tr><td>8.6</td><td>Northwind Analytics · Forward Deployed Engineer</td><td><span class="tag" style="color:var(--muted)">SKIPPED · DUPLICATE</span></td><td>Applied 11-12</td></tr>
+        <tr><td>8.4</td><td>Juniper Voice · AI Engineer - Voice Agents</td><td><span class="tag y">SUBMITTED</span></td><td>Awaiting reply</td></tr>
+        <tr><td>7.7</td><td>Orbital Freight · AI Platform Engineer</td><td><span class="tag" style="color:var(--muted)">SKIPPED · 8+ YRS</span></td><td>—</td></tr>
+        <tr><td>8.1</td><td>Cedar Payments · Machine Learning Engineer</td><td><span class="tag x">CAPTCHA · YOURS</span></td><td>Tab left open</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmt = n => n.toLocaleString("en-US");
+const SRC = [["Greenhouse boards", 3550], ["Ashby boards", 4410], ["Lever boards", 828],
+  ["Workable boards", 159], ["SmartRecruiters", 212], ["Himalayas", 1076], ["RemoteOK", 197],
+  ["We Work Remotely", 646], ["HN Who's hiring", 404]];
+SRC.forEach(([n]) => { const d = document.createElement("div"); d.className = "src"; d.innerHTML = `<span>${n}</span><b></b>`; $("#srcs").appendChild(d); });
+
+function go(n) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("on"));
+  $("#v" + n).classList.add("on");
+  for (let i = 1; i <= 7; i++) {
+    const s = $("#s" + i); s.classList.toggle("on", i === n); s.classList.toggle("done", i < n);
+  }
+}
+const done = (n, text) => { $("#c" + n).textContent = text; };
+function mark(id) { const m = document.createElement("i"); m.id = id; m.hidden = true; document.body.appendChild(m); }
+function node(id, cls) { const g = $("#n-" + id); g.classList.remove("act", "bad", "good"); if (cls) g.classList.add(cls); }
+function json(el, html) { $(el).innerHTML = html; }
+const K = k => `<span class="k">"${k}"</span>`, Sv = s => `<span class="s">"${s}"</span>`, N = n => `<span class="n">${n}</span>`;
+
+window.stage = async (n) => {
+  go(n);
+  if (n === 1) {
+    const cards = document.querySelectorAll(".src"); let total = 0;
+    for (let i = 0; i < SRC.length; i++) {
+      await sleep(380); cards[i].classList.add("ok"); cards[i].querySelector("b").textContent = fmt(SRC[i][1]);
+      total += SRC[i][1]; $("#fetched").textContent = fmt(Math.min(total, 11482));
+    }
+    $("#fetched").textContent = "11,482"; $("#newc").textContent = "2,434"; done(1, "11,482"); mark("d1");
+  }
+  if (n === 2) {
+    for (const v of document.querySelectorAll(".vd")) { await sleep(700); v.classList.add("on"); }
+    await sleep(600); document.querySelectorAll(".bar i").forEach(i => i.style.width = i.dataset.w + "%");
+    await sleep(1100); done(2, "190"); mark("d2");
+  }
+  if (n === 3) { await sleep(400); done(3, "#1/190"); mark("d3"); }
+  if (n === 4) {
+    node("assess", "act"); json("#screenjson", `<span style="color:#8e9099">assess: Brightline AI · Senior AI Engineer, Agents …</span>`);
+    await sleep(1400);
+    json("#screenjson", `{ ${K("score")}: ${N(9)}, ${K("seniority_fit")}: ${Sv("match")},\n  ${K("reasons")}: [${Sv("Production RAG and agents")}, …]\n<span class="e">  // role_fit, location_fit missing</span>`);
+    node("assess"); node("validate", "bad"); await sleep(1800);
+    node("validate"); node("repair", "act");
+    json("#screenjson", `<span class="e">validate: role_fit: field required; location_fit: field required</span>\n<span style="color:#8e9099">repair 1/2: "Your reply did not match the required JSON. Reply with only the corrected JSON object."</span>`);
+    await sleep(2400); node("repair"); node("assess", "act"); await sleep(1200); node("assess"); node("validate", "good");
+    json("#screenjson", `{ ${K("score")}: ${N(9.2)}, ${K("role_fit")}: ${N(9)}, ${K("seniority_fit")}: ${Sv("match")},\n  ${K("location_fit")}: ${Sv("eligible")}, ${K("visa_sponsorship")}: ${Sv("unknown")},\n  ${K("reasons")}: [${Sv("Production RAG and agents match the core of the role")},\n              ${Sv("FastAPI + LangGraph stack named in the posting")}],\n  ${K("red_flags")}: [${Sv("Arabic preferred, not stated in CV")}],\n  ${K("pitch_angle")}: ${Sv("RAG assistant resolving 40% of tickets, with its eval gate")} }`);
+    await sleep(900); node("validate"); node("calibrate", "act"); await sleep(900); node("calibrate"); node("end", "good");
+    done(4, "9.2"); mark("d4");
+  }
+  if (n === 5) {
+    node("draft", "act"); json("#critic", `<span style="color:#8e9099">writing a careers-form cover letter…</span>`);
+    await sleep(1400); node("draft"); node("critique", "act"); await sleep(1000);
+    json("#critic", `{ ${K("fabrications")}: [\n    <span class="e">"Led a team of eight engineers:\n     not in the CV"</span> ],\n  ${K("issues")}: [${Sv("Opening is generic")}],\n  ${K("score")}: ${N(6.5)} }\n<span class="e">→ fails: fabrication, score &lt; 8.0</span>`);
+    node("critique", "bad"); await sleep(3200);
+    node("critique"); node("revise", "act");
+    $("#fab").outerHTML = `<del id="fab">I led a team of eight engineers through two product launches.</del>`;
+    await sleep(2200); node("revise"); node("draft", "act"); await sleep(900); node("draft"); node("critique", "act"); await sleep(1000);
+    json("#critic", `{ ${K("fabrications")}: [],\n  ${K("issues")}: [],\n  ${K("score")}: ${N(8.6)} }\n<span class="s">→ passes: truthful, specific, ≥ 8.0</span>`);
+    node("critique", "good"); await sleep(700); node("save", "good"); done(5, "8.6"); mark("d5");
+  }
+  if (n === 6) { await sleep(1600); $("#approved").style.opacity = 1; done(6, "yes"); mark("d6"); }
+  if (n === 7) { await sleep(300); done(7, "2 sent"); mark("d7"); }
+};
+</script>
+</body>
+</html>

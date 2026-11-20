@@ -15,6 +15,12 @@ applications that a human approves before anything is sent.
 
 <p align="center"><img src="docs/demo/apply.gif" width="100%" alt="Claude Code runs /jobradar:apply over five jobs: submits two careers forms on two different ATSs after the user approves, skips one already applied to and one that needs 8+ years, and hands a CAPTCHA back to the user; every result is logged" /></p>
 
+<details open><summary><b>Inside the agent</b>: one job traced through fetch, rules, hybrid search, the screening agent and the writer/critic loop</summary>
+
+<p align="center"><img src="docs/demo/pipeline.gif" width="100%" alt="RadarWorkflow stages: 11,482 postings fetched from 56 sources; free rules keep 190; BM25 and local embeddings fused with RRF rank Brightline first; the screening agent's invalid JSON is repaired and calibrated to 9.2; the critic flags an invented claim, the writer deletes it and the draft passes at 8.6; the user approves; results show submitted, emailed, skipped and handed-back jobs" /></p>
+
+</details>
+
 - **Durable pipeline.** Every run is a Temporal workflow: retries, timeouts, live progress
   queries and approval signals come from the workflow engine, not hand-written glue.
 - **Polyglot workers.** Go handles I/O-heavy ingestion (9 board parsers, bounded fan-out);
