@@ -1,0 +1,11 @@
+{
+  "name": "jobradar",
+  "owner": { "name": "Mrwan Awad" },
+  "plugins": [
+    {
+      "name": "jobradar",
+      "source": "./plugin",
+      "description": "Your job applier agent: fills application forms from your JobRadar shortlist, sends approved emails, tracks interviews."
+    }
+  ]
+}

@@ -9,20 +9,27 @@ candidate:
   cv: cv/cv.pdf
   # REQUIRED before emails can send: a public link to the CV (Drive "anyone with the link").
   cv_link: ""   # e.g. a Google Drive "anyone with the link" URL
+  # What the screening LLM is told about where you can work. Empty = a generic default.
+  constraints: |
+    - Based in {base}. Egyptian citizen; needs visa sponsorship anywhere else.
+    - Acceptable: remote roles open to Egypt/EMEA/worldwide; on-site in Egypt or the Gulf.
   links:
     linkedin: "https://www.linkedin.com/in/your-handle"
     github: "https://github.com/your-handle"
     portfolio: ""
 
-# Standing answers for salary fields on application forms (filled by Claude in Chrome).
-# Not read by the Python pipeline. All figures are net per month.
-salary:
-  egypt:                # Egypt-based roles
-    current: 0 EGP
-    expected: 0 EGP
-  international:        # Europe, US, anywhere outside the Middle East
-    current: 0 USD
-    expected: 0 USD
+# Standing answers for application forms, typed in by the Claude Code plugin (/jobradar:apply).
+# Blank = the agent asks you. Add any question you get asked often.
+answers:
+  work_authorisation: "Citizen of Egypt; no other work permits"
+  needs_visa_sponsorship: "yes, outside Egypt"
+  willing_to_relocate: "yes"
+  notice_period: "immediately available"
+  years_of_experience: "3"
+  salary:
+    egypt: {current: "0 EGP/month net", expected: "0 EGP/month net"}
+    international: {current: "0 USD/month", expected: "0 USD/month"}
+  how_did_you_hear: "Company careers page"
 
 roles:
   # Title must match at least one of these.

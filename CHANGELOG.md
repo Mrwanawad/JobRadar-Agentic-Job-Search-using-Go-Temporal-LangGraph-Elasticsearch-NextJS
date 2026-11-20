@@ -5,6 +5,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Open for anyone to run as their own job applier agent:
+  - `jobradar init`: profile.yaml and .env from a CV and a few questions (titles, skills and
+    seniority suggested by the LLM from the CV); dry run for the first week, 5 sends a day.
+  - `jobradar doctor`: checks profile, CV text, LLM keys (`--ping` for a live call), sending
+    state and blank form answers.
+  - `jobradar log` / `jobradar check`: record applications made outside the pipeline and
+    look up earlier applications to a company before applying again.
+  - Claude Code plugin (`plugin/`, marketplace in `.claude-plugin/`): `apply` (careers-page
+    forms through Claude in Chrome, with per-ATS notes), `send-outreach`, `track`.
+  - `answers` section in profile.yaml for standing form answers; `docs/GETTING_STARTED.md`,
+    `CONTRIBUTING.md`, `scripts/daily.sh` (cron) for macOS/Linux.
 - Evals: 52 hand-labeled real postings for a synthetic persona; prefilter precision/recall
   gate in CI (`tests/test_evals.py`); LLM screening eval (`evals/screening.py`) with band,
   within-one-band and AUC gates, run by the on-demand/weekly `evals` workflow.
@@ -16,6 +27,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Cloudflare Tunnel config for the gateway (`deploy/cloudflare/tunnel.yml`).
 - CI `web` job: lint, typecheck and a full Cloudflare Worker build.
 - Docs: README v2, architecture, workflows, runbook, security, decision records.
+
+### Changed
+- The screening prompt's default candidate constraints are generic instead of the author's
+  (Egypt/Gulf); set your own in `candidate.constraints`.
 
 ### Fixed
 - Drafting produced no drafts: the writer restated the job's requirements as facts about the

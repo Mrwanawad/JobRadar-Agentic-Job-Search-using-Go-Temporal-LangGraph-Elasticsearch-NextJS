@@ -1,0 +1,9 @@
+{
+  "name": "jobradar",
+  "version": "0.2.0",
+  "description": "Job applier agent for Claude Code: applies to your JobRadar shortlist through careers-page forms (Claude in Chrome), sends approved emails, tracks replies and interviews.",
+  "author": { "name": "Mrwan Awad" },
+  "repository": "https://github.com/Mrwanawad/JobRadar-Agentic-Job-Search-using-Go-Temporal-LangGraph-Elasticsearch-NextJS",
+  "license": "MIT",
+  "keywords": ["jobs", "job-search", "applications", "career"]
+}

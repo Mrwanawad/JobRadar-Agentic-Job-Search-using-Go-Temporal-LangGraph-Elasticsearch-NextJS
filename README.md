@@ -26,6 +26,28 @@ applications that a human approves before anything is sent.
 - **Observable.** OpenTelemetry traces from gateway to LLM call, in Grafana (LGTM) and,
   for agent spans, Langfuse.
 
+## Use it as your own job applier agent
+
+No Docker needed: Python, SQLite, a free LLM key and Claude Code.
+
+```bash
+git clone https://github.com/Mrwanawad/JobRadar-Agentic-Job-Search-using-Go-Temporal-LangGraph-Elasticsearch-NextJS.git jobradar
+cd jobradar && uv sync
+uv run jobradar init --cv path/to/cv.pdf   # profile from your CV + a few questions
+uv run jobradar run                        # find, score, draft
+```
+
+Then in Claude Code, from the repo folder:
+
+```text
+/plugin install jobradar --marketplace Mrwanawad/JobRadar-Agentic-Job-Search-using-Go-Temporal-LangGraph-Elasticsearch-NextJS
+/jobradar:apply
+```
+
+The plugin fills careers-page forms (Workable, Greenhouse, Lever, Ashby, SmartRecruiters...)
+in Chrome with your profile and CV, never applies twice, stops on CAPTCHAs and logins, and
+submits only on your yes. Full guide: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
+
 ## Architecture
 
 ```mermaid
@@ -71,7 +93,8 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/WORKFLOWS.md](doc
 |---|---|
 | `orchestrator/` | Go: Temporal workflows, ingestion worker, HTTP gateway, migrations, schedules |
 | `jobradar/agent/` | Python agent worker: LangGraph graphs, Elasticsearch search, Temporal activities |
-| `jobradar/` | v0.1 single-machine CLI (fetch, score, draft, send) that the platform grew from |
+| `jobradar/` | Lite mode CLI (init, fetch, score, draft, send, track) on SQLite |
+| `plugin/` | Claude Code plugin: `apply`, `send-outreach`, `track` skills |
 | `jobradar/mcp_server.py` | MCP server: run, search and approve from Claude or any MCP client |
 | `proto/` | Protobuf contract shared by Go and Python (`buf generate`) |
 | `apps/web/` | Next.js 16 demo site for Cloudflare Workers ([README](apps/web/README.md)) |
@@ -79,7 +102,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/WORKFLOWS.md](doc
 | `evals/` | Labeled postings + persona, prefilter and LLM screening evals |
 | `docs/` | Architecture, workflows, runbook, security, decision records |
 
-## Quickstart (local, Docker)
+## Platform quickstart (Docker)
 
 Needs Docker with ~6 GB RAM free and at least one free LLM key (Gemini or OpenRouter).
 
@@ -147,6 +170,7 @@ the whole git history.
 
 ## Docs
 
+- [Getting started](docs/GETTING_STARTED.md): run it as your own job applier agent
 - [Architecture](docs/ARCHITECTURE.md): components, data model, why each piece exists
 - [Workflows](docs/WORKFLOWS.md): RadarWorkflow, approvals, purge, schedules, limits
 - [Runbook](docs/RUNBOOK.md): run, debug and recover the stack
@@ -156,15 +180,21 @@ the whole git history.
 - [Sources](docs/ENDPOINTS.md): verified job-board endpoints and LLM free-tier limits
 - [Changelog](CHANGELOG.md)
 
-## Personal mode (v0.1 CLI)
+## Lite mode (CLI)
 
-The original single-user pipeline still works without Docker and runs the author's daily
-search: `uv run jobradar run`, `draft`, `outbox`, with daily caps and a dry-run period before
-anything is sent. See `uv run jobradar --help` and `profile.example.yaml`.
+The single-machine pipeline runs without Docker: `jobradar init`, `doctor`, `run`, `top`,
+`outbox`, `log`, `check`, `process`, `dashboard`, with daily caps and a dry-run week before
+anything is sent. See [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) and
+`uv run jobradar --help`.
 
 ## Status
 
-Backend and web app work end to end locally. Not yet deployed. Next: deployment to Oracle Cloud (k3s, Helm, Argo CD) behind Cloudflare.
+Lite mode and the Claude Code plugin are ready for anyone to run locally. The platform
+(backend + web app) works end to end on Docker Compose; the hosted demo is not deployed yet.
+
+## Contributing
+
+Issues and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
