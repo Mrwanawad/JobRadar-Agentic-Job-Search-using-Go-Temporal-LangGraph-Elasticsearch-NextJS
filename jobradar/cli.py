@@ -78,6 +78,7 @@ def init(
         typer.echo("     the PDF has almost no text (scanned?); export your CV as a text PDF")
         raise typer.Exit(1)
     hint: dict = {}
+    typer.echo("     reading your CV with the LLM (free models can take a few minutes)...")
     try:
         hint = onboard.suggest_from_cv(text)
         typer.echo("     read your CV; suggestions below are defaults, press Enter to keep")
