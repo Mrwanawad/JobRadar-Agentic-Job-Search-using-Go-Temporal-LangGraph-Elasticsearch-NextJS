@@ -39,6 +39,11 @@ invent experience, numbers, titles, employers or answers.
      `file_upload`.
    - Cover letter / "why us" fields: the drafted body from the outbox item (or write one in the
      same style from the CV and the posting: 120-200 words, no claims beyond the CV).
+   - Domain fit: when the employer works in a domain listed in `candidate.domain_portfolio`
+     (e.g. real estate, telecom), every cover letter and free-text field ("why are you a fit",
+     "what would you bring", "tell us about yourself") names 1-3 matching projects by name as
+     working, deployed proofs of concept for that domain's decision makers, with a live link
+     when one is given. Never name the client a project was originally built for.
    - Screening questions: use `answers`. Knockout questions ("5+ years?", "authorised to work
      in X?") get the truthful answer even if it loses the application.
    - A required question with no answer in `profile.yaml` or the CV: ask the user, then

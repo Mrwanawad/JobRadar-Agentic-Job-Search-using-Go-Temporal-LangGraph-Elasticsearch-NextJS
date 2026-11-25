@@ -13,6 +13,10 @@ candidate:
   constraints: |
     - Based in {base}. Egyptian citizen; needs visa sponsorship anywhere else.
     - Acceptable: remote roles open to Egypt/EMEA/worldwide; on-site in Egypt or the Gulf.
+  # Public projects by business domain. Cover letters and "why you" fields name the ones that
+  # match the employer's domain. Never name a client the project was built for.
+  domain_portfolio: |
+    Fintech: Fraud-Scoring-Service (live demo: https://example.com) - real-time card fraud scores.
   links:
     linkedin: "https://www.linkedin.com/in/your-handle"
     github: "https://github.com/your-handle"

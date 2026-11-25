@@ -26,7 +26,8 @@ _BAD_EMAIL = re.compile(
 )
 _GOOD_EMAIL = re.compile(r"job|career|hiring|recruit|talent|hr@|people|apply|cv@|resume")
 
-SYSTEM = """You write job applications for one candidate. Use only facts from the CV; never
+SYSTEM = """You write job applications for one candidate. Use only facts from the CV and the
+candidate's PORTFOLIO; never
 invent experience, numbers or employers. The job description lists what the company wants;
 those are not facts about the candidate. Do not claim tools, habits, availability, hours or
 skills the CV does not state; to answer such an ask, express willingness ("happy to...")
@@ -40,6 +41,9 @@ Name: {name}
 Based in: {base}
 Links: {links}
 
+PORTFOLIO (public projects by business domain; empty = none)
+{portfolio}
+
 JOB
 Company: {company}
 Title: {title}
@@ -52,6 +56,8 @@ Description:
 Write {kind}. Tone: {tone}.
 - Open with why this role at {company}, not with "I am writing to apply".
 - Two or three concrete CV facts that match the job; mention the hook.
+- If the company works in a domain listed in PORTFOLIO, name one to three of those projects by
+  name as working, deployed proofs of concept built for that domain's decision makers.
 - {extra}
 - End with a one-line call to action. Do not add a signature; it is appended later.
 
@@ -115,6 +121,7 @@ def draft_messages(
         name=c.name,
         base=c.base,
         links=links,
+        portfolio=c.domain_portfolio.strip() or "(none)",
         company=row["company"],
         title=row["title"],
         location=row["location"] or "unknown",

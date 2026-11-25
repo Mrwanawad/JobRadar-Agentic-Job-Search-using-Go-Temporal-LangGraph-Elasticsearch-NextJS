@@ -28,6 +28,9 @@ class Candidate(BaseModel):
     links: dict[str, str] = Field(default_factory=dict)  # linkedin, github, portfolio, ...
     # Eligibility and target, as told to the screening LLM. Empty = DEFAULT_CONSTRAINTS.
     constraints: str = ""
+    # Public projects grouped by business domain (e.g. "real estate", "telecom"). Cover letters
+    # and "why you" answers name the ones that match the employer's domain.
+    domain_portfolio: str = ""
 
 
 DEFAULT_CONSTRAINTS = """\
