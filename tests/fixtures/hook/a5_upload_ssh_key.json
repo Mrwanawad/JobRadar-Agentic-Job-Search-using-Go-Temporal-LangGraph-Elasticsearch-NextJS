@@ -1,0 +1,16 @@
+{
+ "event": {
+  "session_id": "recorded",
+  "hook_event_name": "PreToolUse",
+  "tool_use_id": "toolu_x",
+  "tool_name": "mcp__claude-in-chrome__file_upload",
+  "tool_input": {
+   "paths": [
+    "C:/Users/me/.ssh/id_rsa"
+   ],
+   "ref": "ref_12",
+   "tabId": 101
+  }
+ },
+ "expect": "deny"
+}

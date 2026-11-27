@@ -1,0 +1,17 @@
+{
+  "description": "JobRadar guard: enforces upload, navigation, JavaScript and typing limits on Claude in Chrome while applying (docs/THREAT_MODEL.md, A5).",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "claude-in-chrome__(navigate|file_upload|javascript_tool|form_input|computer|browser_batch)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && if grep -qs '^name = \"jobradar\"' pyproject.toml; then uv run --no-sync --quiet python -m jobradar.guard.hook || exit 2; fi",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

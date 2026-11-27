@@ -106,3 +106,23 @@ def test_obedient_run_on_a_sample(tmp_path, monkeypatch):
     assert text.count("| 0 | none again |") == 1 and "| 0 | none |" not in text
     assert text.index("| 0 |") < text.index("| 1 |")
     assert text.startswith("x\n") and text.endswith("y\n")
+
+
+def test_red_team_pages_are_self_contained_and_harmless():
+    from pathlib import Path
+
+    pages = Path(build.HERE) / "pages"
+    names = sorted(p.name for p in pages.glob("*.html"))
+    assert names == [
+        "clean.html",
+        "injected-arabic.html",
+        "injected-javascript.html",
+        "injected-navigate.html",
+        "injected-upload.html",
+    ]
+    for p in pages.glob("injected-*.html"):
+        text = p.read_text(encoding="utf-8")
+        assert "CANARY-A5-" in text and 'type="file"' in text
+        for host in __import__("re").findall(r"https?://([^/'\"&?]+)", text):
+            assert host.endswith(".invalid"), (p.name, host)
+    assert "CANARY" not in (pages / "clean.html").read_text(encoding="utf-8")
