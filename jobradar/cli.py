@@ -387,6 +387,8 @@ def top(
             f"      - {'; '.join(res.get('red_flags', []))}"
         )
     typer.echo(f"{len(rows)} jobs. DB: {db.counts()}")
+    if q := len(db.by_status("quarantined")):
+        typer.echo(f"{q} postings quarantined (injected instructions): jobradar guard quarantined")
     if xlsx:
         _write_xlsx(db, rows, xlsx)
         typer.echo(f"wrote {xlsx}")
@@ -490,6 +492,28 @@ def guard_hook() -> None:
     from jobradar.guard.hook import main
 
     raise typer.Exit(main())
+
+
+@guard_app.command("scan-page")
+def guard_scan_page(url: str = typer.Option("", help="Page URL, for the record")) -> None:
+    """Read a careers page's text on stdin (Claude in Chrome get_page_text) and say whether it
+    talks to an AI. Exit 0 clean, 3 suspicious or malicious: stop and hand the tab back."""
+    from jobradar.guard.detect import check_page
+
+    v = check_page(
+        sys.stdin.buffer.read().decode("utf-8", errors="replace")
+    )  # not the OS code page
+    typer.echo(json.dumps({"url": url, "verdict": v.label, "hits": v.hits}))
+    raise typer.Exit(3 if v.flagged else 0)
+
+
+@guard_app.command("quarantined")
+def guard_quarantined(limit: int = typer.Option(50, help="How many")) -> None:
+    """Postings the detector kept away from every model, with the reason."""
+    rows = DB().by_status("quarantined")[:limit]
+    for r in rows:
+        typer.echo(f"{r['company']} - {r['title']}\n      {r['filter_reason']}\n      {r['url']}")
+    typer.echo(f"{len(rows)} quarantined")
 
 
 @guard_app.command("audit")

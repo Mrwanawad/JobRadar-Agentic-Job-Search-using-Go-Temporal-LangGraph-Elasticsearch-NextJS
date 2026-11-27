@@ -104,10 +104,16 @@ def clean_html(posting: dict[str, Any]) -> str:
     return "\n".join(to_html(posting["description"] or ""))
 
 
-def cases() -> list[Case]:
-    payloads = yaml.safe_load((HERE / "payloads.yaml").read_text(encoding="utf-8"))
+CORPORA = {"templates": ("payloads.yaml", SEED), "heldout": ("payloads_heldout.yaml", SEED + 1)}
+
+
+def cases(corpus: str = "templates") -> list[Case]:
+    """`templates` = the payloads the detector rules were written against (dev);
+    `heldout` = paraphrases never used to tune anything (test)."""
+    name, seed = CORPORA[corpus]
+    payloads = yaml.safe_load((HERE / name).read_text(encoding="utf-8"))
     jobs = postings()
-    rng = random.Random(SEED)
+    rng = random.Random(seed)
     out: list[Case] = []
     for key, (goal, contact) in GOALS.items():
         for lang in LANGS:

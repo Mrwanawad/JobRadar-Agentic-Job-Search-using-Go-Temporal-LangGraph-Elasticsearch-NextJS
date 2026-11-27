@@ -161,6 +161,13 @@ class DB:
             is not None
         )
 
+    def quarantine(self, uid: str, reason: str) -> None:
+        """The detector flagged this posting: never scored by a model, drafted or shown."""
+        self.conn.execute(
+            "UPDATE jobs SET status='quarantined', filter_reason=? WHERE uid=?", (reason, uid)
+        )
+        self.conn.commit()
+
     def set_score(self, uid: str, score: float, result: dict[str, Any], by: str) -> None:
         self.conn.execute(
             "UPDATE jobs SET status='scored', llm_score=?, llm_json=?, scored_by=?, scored_at=? "

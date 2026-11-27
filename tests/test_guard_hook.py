@@ -336,3 +336,15 @@ def test_profile_example_guard_section_is_valid():
 
     raw = yaml.safe_load((Path(__file__).parents[1] / "profile.example.yaml").read_text("utf-8"))
     assert Profile.model_validate(raw).guard.unknown_sites == "ask"
+
+
+def test_hook_reads_utf8_whatever_the_os_code_page(tmp_path):
+    ev = {"tool_name": CHROME + "navigate", "tool_input": {"url": "file:///تجاهل", "tabId": 1}}
+    env = {**__import__("os").environ, "PYTHONIOENCODING": "cp1252", "JOBRADAR_HOME": str(tmp_path)}
+    p = subprocess.run(
+        [sys.executable, "-m", "jobradar.guard.hook"],
+        input=json.dumps(ev, ensure_ascii=False).encode("utf-8"),
+        capture_output=True,
+        env=env,
+    )
+    assert p.returncode == 0 and b'"deny"' in p.stdout

@@ -1,0 +1,76 @@
+# Injection rules for jobradar/guard/detect.py. Patterns run on NORMALISED text: lower case,
+# NFKC, Arabic folded (alef forms -> ا, ى -> ي, ة -> ه, ؤ -> و, ئ -> ي, no diacritics or
+# tatweel) and Franco-Arabic digits read as letters inside words (2 -> a, 3 -> a, 5 -> kh,
+# 7 -> h, so "ta3limat" -> "taalimat"). Write patterns in that form.
+#
+# strong = text addressed to an AI or a model that tries to change what it does (2 points).
+# weak   = phrasing that is fine in a real posting but adds to other signals (1 point).
+# Verdict: >= 2 points suspicious, >= 4 malicious (detect.py). A real posting talks to
+# people about a job; these rules look for text that talks to a model about its task.
+#
+# Written against evals/attacks/payloads.yaml and general injection phrasing only. Never add
+# wording from evals/attacks/payloads_heldout.yaml: that set measures how the rules
+# generalise, and tuning on it would make the number meaningless.
+
+strong:
+  # --- English ---------------------------------------------------------------------------
+  ai_address: >-
+    \b(?:note|message|instructions?|reminder)\s+(?:to|for)\s+(?:all\s+|any\s+)?(?:the\s+)?(?:ai|llms?|gpts?|chatgpt|language\s+models?|bots?)\b
+  ignore_previous: >-
+    \b(?:ignore|disregard|forget|override|bypass)\s+(?:all\s+|any\s+)?(?:of\s+)?(?:the\s+|your\s+)?(?:previous|prior|earlier|above|preceding|original|other|system)?\s*(?:instructions|rules|prompts?|guidelines|directions|guardrails)\b
+  role_switch: >-
+    \byou\s+are\s+now\b|\bnew\s+instructions\b|\b(?:developer|admin|god|jailbreak)\s+mode\b|\bact\s+as\s+(?:an?\s+)?(?:unrestricted|different)\b
+  ai_must: >-
+    \b(?:ai|llm|gpt|automated)\s+(?:assistants?|agents?|tools?|systems?|models?|writers?|screeners?|screening\s+systems?)\s+(?:reading|writing|processing|screening|reviewing|evaluating)\s+(?:this|an?\s+applications?|applications?|candidates?|cvs?|resumes?)\b
+  score_ten: >-
+    \b(?:score|rating|rate\s+(?:it|them|this|him|her))\s+(?:of\s+|as\s+)?10\b|\b10\s*(?:/|out\s+of)\s*10\b
+  fake_delimiter: >-
+    ^\s*#{2,}\s*(?:end|system|instructions?|new\s+task)\b|\bend\s+of\s+(?:the\s+)?(?:job\s+)?description\b|^\s*(?:system|assistant|user)\s*:\s
+  # --- Modern Standard Arabic --------------------------------------------------------------
+  ar_ignore: >-
+    (?:تجاهل|اهمل|انس)\s+(?:جميع\s+|كل\s+)?(?:ال)?(?:تعليمات|اوامر|قواعد)
+  ar_ai_systems: >-
+    (?:انظمه|برامج|نظام|مساعد)\s+(?:ال)?(?:فرز|تقييم|فحص)?\s*(?:بال|ال)?ذكاء\s+(?:ال)?اصطناعي
+  ar_score_ten: >-
+    (?:الدرجه|درجه|تقييم)\s+10\b|\b10\s+من\s+10\b
+  # --- Egyptian Arabic ---------------------------------------------------------------------
+  eg_forget: >-
+    (?:انسي|انسا)\s+(?:ال)?(?:تعليمات|كلام|اوامر)
+  eg_hey_ai: >-
+    (?:يا|لو\s+انت)\s+(?:ذكاء\s+(?:ال)?اصطناعي|ai|بوت)
+  eg_give_ten: >-
+    اديله\s+10
+  # --- Franco-Arabic (digits already read as letters) --------------------------------------
+  fr_forget: >-
+    \bensa\s+(?:el\s+)?(?:taalimat|kalam|awamer)\b
+  fr_hey_ai: >-
+    \b(?:ya|law\s+enta)\s+(?:ai|bot)\b
+  fr_give_ten: >-
+    \bedilo\s+10\b|\b10\s+men\s+10\b
+
+weak:
+  # --- English ---------------------------------------------------------------------------
+  include_phrase: >-
+    \b(?:include|add|insert|repeat)\s+(?:the\s+|this\s+)?(?:exact\s+)?(?:link|url|sentence|phrase|words?|code)\b
+  decode: >-
+    \bdecode\s+(?:and|this|the\s+following)\b|\bbase64\b
+  no_red_flags: >-
+    \bno\s+(?:red\s+flags|negatives)\b|\bperfect\s+(?:match|score)\b
+  cv_and_salary_to: >-
+    \b(?:send|email|forward|message|whatsapp)\b.{0,50}\b(?:cv|resume)\b.{0,50}\bsalary\b
+  private_details: >-
+    \b(?:national\s+id|id\s+number|passport\s+number|date\s+of\s+birth|home\s+address|current\s+salary)\b
+  # --- Arabic and Egyptian Arabic ----------------------------------------------------------
+  ar_include: >-
+    (?:يضيف|يذكر|تحط)\s+(?:ال)?(?:جمله|عباره|رابط|لينك)
+  ar_cv_salary: >-
+    (?:ارسل|ابعت|راسل).{0,40}(?:سيرتك|السيره|ال\s*cv).{0,50}(?:الراتب|المرتب)
+  ar_private: >-
+    (?:الرقم\s+القومي|رقمه\s+القومي|رقم\s+(?:ال)?هويه|تاريخ\s+(?:ال)?ميلاد|عنوان\s+(?:ال)?سكن|مرتبه\s+الحالي|الراتب\s+الحالي)
+  # --- Franco-Arabic -----------------------------------------------------------------------
+  fr_include: >-
+    \bthot\s+el\s+(?:gomla|link)\b
+  fr_cv_salary: >-
+    \bebaat\s+el\s+cv\b.{0,60}\bmortab
+  fr_private: >-
+    \b(?:raam\s+el\s+aawmy|tarekh\s+milad)

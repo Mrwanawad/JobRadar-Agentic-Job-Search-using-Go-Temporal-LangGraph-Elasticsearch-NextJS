@@ -17,7 +17,7 @@ from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from typing import Any
 
-LAYERS = ("sanitize", "recipients", "output")
+LAYERS = ("sanitize", "detect", "recipients", "output")
 _off: set[str] = set()
 
 

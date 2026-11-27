@@ -22,6 +22,7 @@ from temporalio.exceptions import ApplicationError
 from jobradar.agent import graphs
 from jobradar.agent.search import JobIndex
 from jobradar.agent.store import AgentStore
+from jobradar.guard.detect import check_posting
 from jobradar.llm import CAPTURE_CONTENT, LLMClient, LLMError, LLMResult
 from jobradar.outreach import route
 from jobradar.prefilter import Prefilter
@@ -133,6 +134,12 @@ class Agent:
     def score_job(self, inp: pb.ScoreJobInput) -> pb.ScoreJobResult:
         sp = self.store.profile(inp.profile_id)
         job = self.store.job(inp.job_uid)
+        verdict = check_posting(job)
+        if verdict.flagged:  # injected or hidden instructions: no model sees it, never drafted
+            data = {"quarantined": verdict.label, "guard": verdict.hits, "reasons": [],
+                    "red_flags": [verdict.reason()]}  # fmt: skip
+            self.store.save_score(inp.profile_id, inp.job_uid, 0.0, data, "guard")
+            return pb.ScoreJobResult(job_uid=inp.job_uid, score=0.0, scored_by="guard")
         with _heartbeating(), _content_policy(sp.kind):
             score, data, by = graphs.screen(self.llm, sp.profile, sp.cv_text, job)
         self.store.save_score(inp.profile_id, inp.job_uid, score, data, by)

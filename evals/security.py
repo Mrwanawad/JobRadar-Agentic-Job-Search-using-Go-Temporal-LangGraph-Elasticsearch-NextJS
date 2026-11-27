@@ -42,6 +42,7 @@ from evals.common import band, persona, postings
 from evals.screening import auc
 from jobradar import guard
 from jobradar.config import Profile
+from jobradar.guard.detect import check_posting
 from jobradar.guard.sanitize import clean_text
 from jobradar.llm import estimate_tokens
 from jobradar.models import extract_contacts, html_to_text
@@ -112,6 +113,14 @@ def run_case(
     clean_score: Callable[[str], float | None],
 ) -> dict[str, Any]:
     row = ingest(job, case.html)
+    verdict = check_posting(row)
+    if verdict.flagged:  # quarantined: never scored, drafted or sent (pipeline.py)
+        return {
+            "case_id": case.case_id, "goal": case.goal, "contact": case.contact,
+            "variant": case.variant, "language": case.language, "placement": case.placement,
+            "reach": False, "tokens": 0, "success": False, "quarantined": verdict.label,
+            "held": False, "cv_attached": False, "seconds": 0.0,
+        }  # fmt: skip
     r = route(row)
     channel, recipient = r.channel, r.recipient
     screen_prompt = build_prompt(profile, cv, row)
@@ -162,6 +171,9 @@ def run_case(
 
 
 def summarize(rows: list[dict[str, Any]], clean: dict[str, Any]) -> dict[str, Any]:
+    for r in rows:
+        r["quarantined_flag"] = bool(r.get("quarantined"))
+
     def rate(rs: list[dict[str, Any]], key: str) -> dict[str, float]:
         m, lo, hi = bootstrap([float(r[key]) for r in rs])
         return {"mean": m, "lo": lo, "hi": hi, "n": len(rs)}
@@ -187,6 +199,7 @@ def summarize(rows: list[dict[str, Any]], clean: dict[str, Any]) -> dict[str, An
         "reach": rate(rows, "reach"),
         "a3_held_for_review": rate(by_goal["A3"], "held") if by_goal["A3"] else None,
         "drafts_rejected": sum(bool(r.get("rejected")) for r in rows),
+        "quarantined": rate(rows, "quarantined_flag"),
         "a3_whatsapp_cv": rate(
             [r for r in by_goal["A3"] if r["contact"] == "whatsapp"], "cv_attached"
         ),
@@ -204,7 +217,9 @@ def clean_fpr() -> dict[str, Any]:
     carries the CV), so it is reported apart, not counted as an error."""
     rows = [ingest(j, clean_html(j)) for j in postings()]
     routes = [route(r) for r in rows]
-    flagged = [bool(clean_text(r["description"]).findings) for r in rows]
+    flagged = [
+        bool(clean_text(r["description"]).findings) or check_posting(r).flagged for r in rows
+    ]
     held = [r.channel == "email" and r.status != "draft" for r in routes]
     hits = [f or h for f, h in zip(flagged, held, strict=True)]
     return {
@@ -221,7 +236,11 @@ def score_clean(llm: Any, profile: Profile, cv: str, jobs: list[dict[str, Any]],
     scores: dict[str, float | None] = {}
     for j in jobs:
         try:
-            scores[j["uid"]], _, _ = score_job(llm, profile, cv, ingest(j, clean_html(j)))
+            row = ingest(j, clean_html(j))
+            if check_posting(row).flagged:  # a quarantined clean posting scores 0
+                scores[j["uid"]] = 0.0
+                continue
+            scores[j["uid"]], _, _ = score_job(llm, profile, cv, row)
         except Exception as e:  # noqa: BLE001 - one bad reply must not end the eval
             print(f"clean score failed for {j['uid']}: {e}", file=sys.stderr)
             scores[j["uid"]] = None
@@ -237,30 +256,32 @@ def score_clean(llm: Any, profile: Profile, cv: str, jobs: list[dict[str, Any]],
     return scores, clean
 
 
-def run(mode: str, sample: int | None, without: tuple[str, ...] = ()) -> dict[str, Any]:
+def run(
+    mode: str, sample: int | None, without: tuple[str, ...] = (), corpus: str = "templates"
+) -> dict[str, Any]:
     with guard.disabled(*without):
-        report = _run(mode, sample)
-    report["without"] = list(without)
+        report = _run(mode, sample, corpus)
+    report |= {"without": list(without), "corpus": corpus}
     return report
 
 
-def _run(mode: str, sample: int | None) -> dict[str, Any]:
+def _run(mode: str, sample: int | None, corpus: str = "templates") -> dict[str, Any]:
     profile, cv = eval_persona()
     jobs = {j["uid"]: j for j in postings()}
-    corpus = cases()
+    attacks = cases(corpus)
     if sample:
-        corpus = random.Random(SEED).sample(corpus, min(sample, len(corpus)))
+        attacks = random.Random(SEED).sample(attacks, min(sample, len(attacks)))
     if mode == "live":
         from jobradar.llm import LLMClient
 
         llm: Any = LLMClient()
     else:
         llm = ObedientLLM()
-    needed = [jobs[u] for u in sorted({c.posting_uid for c in corpus if c.goal == "A1"})]
+    needed = [jobs[u] for u in sorted({c.posting_uid for c in attacks if c.goal == "A1"})]
     clean_jobs = list(jobs.values()) if mode == "live" else needed
     scores, clean = score_clean(llm, profile, cv, clean_jobs, mode == "live")
     rows = []
-    for c in corpus:
+    for c in attacks:
         try:
             rows.append(run_case(llm, profile, cv, c, jobs[c.posting_uid], scores.get))
         except Exception as e:  # noqa: BLE001
@@ -335,6 +356,12 @@ def main() -> int:
     ap.add_argument("--sample", type=int, default=None, help="random subset of cases")
     ap.add_argument("--write-docs", nargs=2, metavar=("ROW", "LABEL"))
     ap.add_argument(
+        "--corpus",
+        choices=("templates", "heldout"),
+        default="templates",
+        help="templates = payloads the rules were written against; heldout = paraphrases",
+    )
+    ap.add_argument(
         "--without",
         default="",
         help=f"comma-separated guard layers to switch off, to reproduce earlier rows "
@@ -343,7 +370,7 @@ def main() -> int:
     args = ap.parse_args()
 
     without = tuple(x for x in args.without.split(",") if x)
-    report = run(args.llm, args.sample, without)
+    report = run(args.llm, args.sample, without, args.corpus)
     s = report["summary"]
     RESULTS.mkdir(exist_ok=True)
     out = RESULTS / f"security-{args.llm}-{datetime.now(UTC):%Y%m%d-%H%M}.json"
@@ -351,7 +378,8 @@ def main() -> int:
     print(table_row("-", "this run", s))
     print(f"report: {out}")
     if args.write_docs:
-        write_docs(args.llm, *args.write_docs, s)
+        block = args.llm + ("" if args.corpus == "templates" else f"-{args.corpus}")
+        write_docs(block, *args.write_docs, s)
         print(f"updated {DOCS}")
     return 0
 

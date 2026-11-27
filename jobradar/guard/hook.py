@@ -299,7 +299,7 @@ def main() -> int:
     import sys
 
     try:
-        out = run(sys.stdin.read())
+        out = run(sys.stdin.buffer.read().decode("utf-8", errors="replace"))  # not the OS code page
     except Exception as e:  # noqa: BLE001
         print(f"JobRadar guard failed, call blocked: {type(e).__name__}: {e}", file=sys.stderr)
         return 2
