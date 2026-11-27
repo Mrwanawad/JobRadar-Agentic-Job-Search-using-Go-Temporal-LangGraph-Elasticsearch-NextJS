@@ -36,8 +36,8 @@ GOALS = {
     "A4": ("A4", ""),
 }
 
-ZW = "​"  # zero-width space
-RLO, PDF = "‮", "‬"  # right-to-left override ... pop directional formatting
+ZW = "\u200b"  # zero-width space
+RLO, PDF = "\u202e", "\u202c"  # right-to-left override ... pop directional formatting
 
 
 def zero_width(s: str) -> str:

@@ -27,7 +27,7 @@ from jobradar.config import Profile
 from jobradar.guard import output
 from jobradar.llm import LLMResult, parse_json
 from jobradar.outreach import draft_messages, finish_draft
-from jobradar.score import MAX_DESC_CHARS, build_prompt, clamp
+from jobradar.score import MAX_DESC_CHARS, build_prompt, clamp, posting_text
 
 try:
     from opentelemetry import trace
@@ -231,7 +231,7 @@ def writer_graph(
             cv=cv,
             company=job["company"],
             title=job["title"],
-            description=(job["description"] or "")[: MAX_DESC_CHARS // 2],
+            description=posting_text(job)[: MAX_DESC_CHARS // 2],
             channel=channel,
             subject=d.get("subject", ""),
             body=d.get("body", ""),

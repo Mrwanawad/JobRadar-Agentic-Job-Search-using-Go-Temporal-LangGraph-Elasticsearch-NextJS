@@ -19,8 +19,9 @@ from typing import Any
 from jobradar.config import ROOT, Profile
 from jobradar.db import DB
 from jobradar.guard import output, recipients
+from jobradar.guard.sanitize import clean_text
 from jobradar.llm import LLMClient, LLMError
-from jobradar.score import MAX_DESC_CHARS, cv_text
+from jobradar.score import MAX_DESC_CHARS, cv_text, posting_text
 
 # Addresses in a posting that are not where applications go.
 _BAD_EMAIL = re.compile(
@@ -156,12 +157,12 @@ def draft_messages(
         base=c.base,
         links=links,
         portfolio=c.domain_portfolio.strip() or "(none)",
-        company=row["company"],
-        title=row["title"],
-        location=row["location"] or "unknown",
+        company=clean_text(row["company"]).text,
+        title=clean_text(row["title"]).text,
+        location=clean_text(row["location"]).text or "unknown",
         pitch=res.get("pitch_angle", ""),
         reasons="; ".join(res.get("reasons", [])),
-        description=(row["description"] or "")[:MAX_DESC_CHARS],
+        description=posting_text(row)[:MAX_DESC_CHARS],
         kind=kind,
         tone=o.tone,
         extra=extra,

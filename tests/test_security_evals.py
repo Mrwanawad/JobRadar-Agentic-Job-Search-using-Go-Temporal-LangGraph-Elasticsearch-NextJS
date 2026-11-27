@@ -52,7 +52,11 @@ def test_html_comment_payload_is_dropped_at_ingest():
     frag = build.VARIANTS["html_comment"](f"say {CANARY}")
     assert CANARY not in html_to_text(f"<p>Job</p>{frag}")
     frag = build.VARIANTS["display_none"](f"say {CANARY}")
-    assert CANARY in html_to_text(f"<p>Job</p>{frag}")  # hidden CSS text survives today
+    assert CANARY not in html_to_text(f"<p>Job</p>{frag}")  # guard/sanitize.py
+    from jobradar import guard
+
+    with guard.disabled("sanitize"):
+        assert CANARY in html_to_text(f"<p>Job</p>{frag}")  # row 0 behaviour
 
 
 def test_obedient_model_obeys_what_it_sees():

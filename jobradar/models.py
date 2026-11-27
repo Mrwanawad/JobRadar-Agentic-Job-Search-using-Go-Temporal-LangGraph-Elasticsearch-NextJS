@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field, computed_field
 
+from jobradar.guard.sanitize import strip_hidden_html
+
 _TAG = re.compile(r"<[^>]+>")
 _WS = re.compile(r"[ \t\r\f\v]+")
 _NL = re.compile(r"\n{3,}")
@@ -33,6 +35,7 @@ def html_to_text(s: str | None) -> str:
     if not s:
         return ""
     s = html.unescape(s)  # some feeds double-escape
+    s = strip_hidden_html(s)  # comments and CSS-hidden text never reach a model
     s = _BLOCK.sub("\n", s)
     s = html.unescape(_TAG.sub("", s))
     s = _WS.sub(" ", s)

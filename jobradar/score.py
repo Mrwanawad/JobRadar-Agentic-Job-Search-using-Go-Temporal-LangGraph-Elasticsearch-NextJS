@@ -9,6 +9,7 @@ from typing import Any
 from pypdf import PdfReader
 
 from jobradar.config import DEFAULT_CONSTRAINTS, ROOT, Profile
+from jobradar.guard.sanitize import clean_text
 from jobradar.llm import LLMClient
 
 MAX_DESC_CHARS = 6000
@@ -76,18 +77,23 @@ def constraints_text(profile: Profile) -> str:
     return (c.constraints or DEFAULT_CONSTRAINTS).format(base=c.base or "unknown")
 
 
+def posting_text(job: Mapping[str, Any]) -> str:
+    """The description as a person reads it (guard/sanitize.py): the only form any prompt gets."""
+    return clean_text(job["description"]).text
+
+
 def build_prompt(profile: Profile, cv: str, job: Mapping[str, Any]) -> list[dict[str, str]]:
     """Messages for one screening call. `job` is a SQLite row or a Postgres dict row."""
     prompt = TEMPLATE.format(
         cv=cv,
         constraints=constraints_text(profile),
-        company=job["company"],
-        title=job["title"],
-        location=job["location"] or "unknown",
+        company=clean_text(job["company"]).text,
+        title=clean_text(job["title"]).text,
+        location=clean_text(job["location"]).text or "unknown",
         remote={1: "yes", 0: "no"}.get(job["remote"], "unknown"),
-        salary=job["salary"] or "not stated",
+        salary=clean_text(job["salary"]).text or "not stated",
         posted_at=job["posted_at"] or "unknown",
-        description=(job["description"] or "(no description available)")[:MAX_DESC_CHARS],
+        description=posting_text(job)[:MAX_DESC_CHARS] or "(no description available)",
     )
     return [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]
 

@@ -24,9 +24,9 @@ from typing import Any
 from jobradar.llm import LLMResult, parse_json
 
 CANARY = re.compile(r"CANARY-(A\d)-(\d{4})")
-_INVISIBLE = re.compile("[​-‍⁠﻿]")
+_INVISIBLE = re.compile("[\u200b-\u200d\u2060\ufeff]")
 _TAGS = re.compile("[\U000e0000-\U000e007f]+")
-_RLO = re.compile("‮(.*?)‬", re.S)
+_RLO = re.compile("\u202e(.*?)\u202c", re.S)
 _B64 = re.compile(r"[A-Za-z0-9+/]{24,}={0,2}")
 _EMAIL = re.compile(r"[\w.+-]+@canary\.invalid")
 _PHONE = re.compile(r"\+999[\d ]{8,14}\d")
@@ -52,7 +52,9 @@ def reveal(text: str) -> str:
             decoded.append(base64.b64decode(blob, validate=True).decode("utf-8"))
         except (binascii.Error, UnicodeDecodeError, ValueError):
             continue
-    return "\n".join([text, *decoded])
+    # Text stored backwards (a right-to-left override with its control characters removed)
+    # can still be read by a capable model, so the worst case reads it too.
+    return "\n".join([text, *decoded, text[::-1]])
 
 
 def seen(text: str) -> dict[str, str]:

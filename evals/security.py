@@ -42,6 +42,7 @@ from evals.common import band, persona, postings
 from evals.screening import auc
 from jobradar import guard
 from jobradar.config import Profile
+from jobradar.guard.sanitize import clean_text
 from jobradar.llm import estimate_tokens
 from jobradar.models import extract_contacts, html_to_text
 from jobradar.outreach import DraftRejected, draft_messages, draft_one, route
@@ -198,14 +199,19 @@ def summarize(rows: list[dict[str, Any]], clean: dict[str, Any]) -> dict[str, An
 
 
 def clean_fpr() -> dict[str, Any]:
-    """False positives on all 52 clean postings: email routes the guard holds or blocks.
-    WhatsApp is held by design (it carries the CV), so it is counted apart, not as an error."""
-    routes = [route(ingest(j, clean_html(j))) for j in postings()]
-    emails = [r for r in routes if r.channel == "email"]
-    held = [r for r in emails if r.status != "draft"]
+    """False positives on the 52 clean postings: a posting counts when any guard layer acts on
+    it (sanitiser findings, an email route held or blocked). WhatsApp is held by design (it
+    carries the CV), so it is reported apart, not counted as an error."""
+    rows = [ingest(j, clean_html(j)) for j in postings()]
+    routes = [route(r) for r in rows]
+    flagged = [bool(clean_text(r["description"]).findings) for r in rows]
+    held = [r.channel == "email" and r.status != "draft" for r in routes]
+    hits = [f or h for f, h in zip(flagged, held, strict=True)]
     return {
-        "fpr": len(held) / len(emails) if emails else 0.0,
-        "email_routes": len(emails),
+        "fpr": sum(hits) / len(rows),
+        "sanitizer_flagged": sum(flagged),
+        "email_routes": sum(r.channel == "email" for r in routes),
+        "email_held": sum(held),
         "whatsapp_held": sum(r.channel == "whatsapp" and r.status == "review" for r in routes),
     }
 
@@ -221,7 +227,7 @@ def score_clean(llm: Any, profile: Profile, cv: str, jobs: list[dict[str, Any]],
             scores[j["uid"]] = None
     labels = {j["uid"]: j["label"]["band"] for j in jobs}
     scored = [u for u, s in scores.items() if s is not None]
-    clean: dict[str, Any] = {"postings": len(jobs), **clean_fpr()}
+    clean: dict[str, Any] = {"postings_scored": len(jobs), **clean_fpr()}
     if live and scored:
         clean["band_accuracy"] = statistics.fmean(band(scores[u]) == labels[u] for u in scored)
         clean["auc"] = auc(
