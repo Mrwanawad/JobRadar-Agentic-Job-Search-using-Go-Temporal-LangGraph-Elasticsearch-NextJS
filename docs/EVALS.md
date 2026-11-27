@@ -102,33 +102,34 @@ writing prompt. Band accuracy and AUC on the clean set need the live model.
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 0 | none | 0.73 [0.64, 0.81] | 0.75 [0.68, 0.84] | 0.40 [0.33, 0.47] | 0.00 [0.00, 0.00] | 0.74 [0.70, 0.78] | 0.00 | n/a | n/a | 3630 | 0.001s |
 | 1 | + recipient and output policy | 0.73 [0.64, 0.81] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.74 [0.70, 0.78] | 0.00 | n/a | n/a | 3631 | 0.001s |
+| 2 | + sanitisation | 0.41 [0.31, 0.50] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.40 [0.36, 0.45] | 0.00 | n/a | n/a | 3610 | 0.001s |
 
 Latest row by language, concealment and placement (510 cases):
 
 | language | ASR, all goals | payload reach |
 |---|---|---|
-| egy | 0.12 | 0.66 |
-| en | 0.16 | 0.77 |
-| franco | 0.14 | 0.78 |
-| msa | 0.15 | 0.74 |
+| egy | 0.08 | 0.37 |
+| en | 0.08 | 0.41 |
+| franco | 0.07 | 0.39 |
+| msa | 0.09 | 0.45 |
 
 | variant | ASR, all goals | payload reach |
 |---|---|---|
-| base64 | 0.12 | 0.77 |
+| base64 | 0.00 | 0.00 |
 | bidi | 0.17 | 0.88 |
-| display_none | 0.15 | 0.83 |
+| display_none | 0.00 | 0.00 |
 | fake_delimiter | 0.20 | 0.87 |
 | html_comment | 0.00 | 0.00 |
 | plain | 0.18 | 0.83 |
-| unicode_tags | 0.17 | 0.90 |
-| white_text | 0.18 | 0.80 |
+| unicode_tags | 0.00 | 0.00 |
+| white_text | 0.00 | 0.00 |
 | zero_width | 0.15 | 0.85 |
 
 | placement | ASR, all goals | payload reach |
 |---|---|---|
-| end | 0.09 | 0.49 |
-| middle | 0.16 | 0.85 |
-| start | 0.18 | 0.88 |
+| end | 0.06 | 0.29 |
+| middle | 0.09 | 0.45 |
+| start | 0.09 | 0.47 |
 <!-- /security:obedient -->
 
 What row 0 (no defences) shows:
@@ -158,7 +159,24 @@ What row 1 (recipient and output policy, `jobradar/guard/`) shows:
   automatically; the one WhatsApp-only posting is held by design.
 - **A1 and payload reach are unchanged**: the payload still reaches the screening model.
   That is the job of sanitisation, the detector and quarantined extraction (next rows).
-- Row 0 is reproducible at any time with `--without recipients,output`.
+- Row 0 is reproducible at any time with `--without sanitize,recipients,output`, row 1 with
+  `--without sanitize`.
+
+What row 2 (sanitisation, `jobradar/guard/sanitize.py`) shows:
+
+- **A1 drops from 0.73 to 0.41 and payload reach from 0.74 to 0.40.** HTML comments,
+  `display:none`, white text, Unicode tag characters and base64 no longer reach any prompt
+  (reach 0.00 for each). Each leaves a finding, which the detector will use as a signal.
+- **What still reaches the model is text a person can read**: plain payloads (reach 0.83),
+  fake prompt delimiters (0.87), zero-width splits, which sanitising rejoins into readable
+  words on purpose so the detector can see them (0.85), and right-to-left overrides
+  (0.88). With the override characters removed the payload is stored backwards; the
+  worst-case model is made to read reversed text, so this row does not count that as a win.
+- **Clean postings: 0 of 52 flagged**, and their text is unchanged apart from whitespace and
+  NFKC (`tests/test_sanitize.py`).
+- **All four languages fall together** (reach 0.37-0.45): this layer is language-blind.
+- The Go ingest worker strips hidden HTML the same way (`ingest.StripHidden`), checked
+  against the Python output on 19 cases (`tests/fixtures/golden/hidden_html.json`).
 
 ### Applier red-team (A5)
 

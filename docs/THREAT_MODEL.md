@@ -117,11 +117,11 @@ worst-case model) is in [EVALS.md](EVALS.md), Layer 3.
 
 | Layer | Where | Covers |
 |---|---|---|
-| Sanitisation: invisible characters, hidden HTML, normalisation | `jobradar/guard/sanitize.py` at ingest | A1, A2, A5 |
+| Sanitisation: hidden HTML at ingest (Python and Go), invisible and override characters, tag text, base64, NFKC at every prompt (**shipped**, `tests/test_sanitize.py`) | `jobradar/guard/sanitize.py`, `models.html_to_text`, `score.posting_text`, `ingest.StripHidden` | A1, A2, A5 |
 | Injection detector: multilingual rules, optional Prompt Guard 2 | `jobradar/guard/detect.py` | A1, A2, A5 |
 | Quarantined extraction: a tool-less model turns the posting into capped `JobFacts`; screener and writer never see raw text | ADR 0005 | A1, A2, A4 |
 | Output policy on drafts: URLs, contacts, numbers, `answers`, echoed text (**shipped**, `tests/test_guard.py`) | `jobradar/guard/output.py`, `outreach.draft_one`, writer graph | A2, A4 |
-| Recipient policy: domain matches company, free-mail to review, WhatsApp + CV needs per-item approval, scam signals (**shipped**); visible text only (needs sanitisation's hidden-text findings) | `jobradar/guard/recipients.py`, `outreach.route`, `sendable` | A3, A7 |
+| Recipient policy: domain matches company, free-mail to review, WhatsApp + CV needs per-item approval, scam signals, contacts from visible text only (hidden HTML is cut before `extract_contacts`) (**shipped**) | `jobradar/guard/recipients.py`, `outreach.route`, `sendable` | A3, A7 |
 | Gateway-side approval checks: held drafts stored as `review`, which the gateway only approves from `draft` (**shipped**); approver identity not recorded yet | `agent/activities.py`, `store.DecideDraft` | A6 |
 | PreToolUse hooks for the applier: upload, navigate, JavaScript, typing (**shipped**, `tests/test_guard_hook.py`); page scan before filling (with the detector) | `plugin/hooks/hooks.json`, `jobradar/guard/hook.py` | A5, A10 |
 | Dashboard: http(s)-only links, `Host` allow-list (**shipped**, `tests/test_dashboard.py`) | `dashboard.html`, `dashboard.py` | A8, A10 |

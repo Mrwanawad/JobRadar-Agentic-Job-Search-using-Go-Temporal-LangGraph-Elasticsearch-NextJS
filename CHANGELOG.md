@@ -36,6 +36,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Nested standing answers (`salary: {egypt: {current: ...}}`) were never matched by the
   draft and typing checks; answers are now flattened before checking.
 
+- Input sanitisation (`jobradar/guard/sanitize.py`): HTML comments and CSS- or
+  attribute-hidden elements are cut out in `html_to_text` (and in the Go ingest worker,
+  `ingest.StripHidden`, with a shared parity fixture); invisible, Unicode tag and
+  direction-override characters, base64 text and NFKC are handled wherever posting text
+  enters a prompt. A1 attack success 0.73 -> 0.41, payload reach 0.74 -> 0.40, no clean
+  posting flagged.
+
 ### Changed
 - WhatsApp drafts (and email drafts to a flagged address) are no longer sendable until you
   approve each one with `jobradar approve <id>`.

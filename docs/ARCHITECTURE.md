@@ -111,6 +111,14 @@ demo visitor's data with one `DELETE FROM profiles`.
 4. **Screening agent** reads the top matches and returns a typed `Assessment`: score, role
    fit, seniority fit, location fit, visa sponsorship, reasons, red flags, pitch angle.
 
+## Guardrails
+
+Postings are untrusted input; `jobradar/guard/` sits between them and anything that decides
+or acts: sanitisation at ingest and at every prompt, recipient and output policy on drafts,
+and a PreToolUse hook on the Claude in Chrome applier. See
+[THREAT_MODEL.md](THREAT_MODEL.md) and the measured results in [EVALS.md](EVALS.md)
+(Layer 3).
+
 ## Agents (LangGraph)
 
 ```

@@ -89,6 +89,12 @@ CLI and by a PreToolUse hook outside the model; the skills state the rest:
   the user runs `jobradar approve <id>`; reserved domains are blocked. `sendable()` checks
   again at send time. In platform mode held drafts are stored as `review`, which the gateway
   and MCP `approve_draft` cannot approve.
+- **Input sanitisation (enforced, `jobradar/guard/sanitize.py`).** HTML comments and
+  elements hidden by CSS or attributes are cut out when a posting is parsed (Python and the Go
+  ingest worker alike), so hidden text never reaches a prompt or the contact extractor.
+  Where posting text enters a prompt, invisible, tag and direction-override characters are
+  removed, base64 that decodes to text is replaced, and text is NFKC-normalised. What was
+  hidden is kept as a finding for the detector.
 - **Output policy (enforced, `jobradar/guard/output.py`).** Drafts may contain only the
   candidate's own links, email and phone, no private form answers, only numbers found in the
   CV or posting, no long spans copied from the posting, and plain text. A violating draft
