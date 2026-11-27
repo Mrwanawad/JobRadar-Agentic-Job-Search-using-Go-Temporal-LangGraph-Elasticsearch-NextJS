@@ -210,6 +210,7 @@ the whole git history.
 - [Runbook](docs/RUNBOOK.md): run, debug and recover the stack
 - [Evals](docs/EVALS.md): labeled postings, prefilter CI gate, LLM screening eval
 - [Security](docs/SECURITY.md): trust boundaries, secrets, data retention
+- [Threat model](docs/THREAT_MODEL.md): the agent's lethal trifecta, attacks A1-A10, OWASP / ATLAS mapping
 - [Decision records](docs/adr/): Temporal, Go + Python split, client-side RRF, Workers + Tunnel
 - [Sources](docs/ENDPOINTS.md): verified job-board endpoints and LLM free-tier limits
 - [Changelog](CHANGELOG.md)

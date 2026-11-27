@@ -54,6 +54,9 @@ dry-run date, daily caps and per-recipient deduplication.
 
 ## Applier agent guardrails (lite mode + plugin)
 
+Attacks on the agent itself (prompt injection in postings and careers pages, recipient
+hijack, tool misuse) are covered in [THREAT_MODEL.md](THREAT_MODEL.md).
+
 The Claude Code plugin acts in the user's own browser session, so its limits are written into
 the skills and enforced by the CLI where possible:
 
