@@ -102,6 +102,10 @@ CLI and by a PreToolUse hook outside the model; the skills state the rest:
   (`jobradar guard quarantined`). The applier runs `jobradar guard scan-page` on each careers
   page before filling it and hands the tab back when it is flagged. Rules are a phrase list:
   the held-out results in EVALS.md show reworded attacks get past them.
+- **Quarantined extraction (opt-in, `scoring.extraction: true`).** A model with no tools and
+  no CV turns each posting into typed facts; the screening model reads those instead of the
+  posting text, the writer adds only a checked 300-character company summary. See
+  [ADR 0005](adr/0005-quarantined-extraction-for-untrusted-postings.md).
 - **Output policy (enforced, `jobradar/guard/output.py`).** Drafts may contain only the
   candidate's own links, email and phone, no private form answers, only numbers found in the
   CV or posting, no long spans copied from the posting, and plain text. A violating draft

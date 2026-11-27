@@ -104,6 +104,7 @@ writing prompt. Band accuracy and AUC on the clean set need the live model.
 | 1 | + recipient and output policy | 0.73 [0.64, 0.81] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.74 [0.70, 0.78] | 0.00 | n/a | n/a | 3631 | 0.001s |
 | 2 | + sanitisation | 0.41 [0.31, 0.50] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.40 [0.36, 0.45] | 0.00 | n/a | n/a | 3610 | 0.001s |
 | 3 | + rules detector | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.06 [0.05, 0.09] | 0.00 | n/a | n/a | 1742 | 0.000s |
+| 4 | + quarantined extraction | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.06 [0.05, 0.09] | 0.00 | n/a | n/a | 1394 | 0.000s |
 
 Latest row by language, concealment and placement (510 cases):
 
@@ -192,6 +193,24 @@ What row 3 (rules detector, `jobradar/guard/detect.py` + `rules.yaml`) shows:
 - Requests like "send your CV and salary to ..." count only as a weak signal on purpose:
   real MENA postings say it too, and the recipient and output policies already stop A3/A4.
 
+What row 4 (quarantined extraction, [ADR 0005](adr/0005-quarantined-extraction-for-untrusted-postings.md))
+shows:
+
+- The worst-case extractor obeys every payload it sees: it writes the instruction into every
+  free-text field and list and picks the most favourable enum values. The screening model
+  still never receives it: **payload reach in the screening prompt is 0.00**, and on the
+  held-out paraphrases A1 is 0.00 even with the detector switched off
+  (`--corpus heldout --without detect`). The remaining "payload reach" is the company
+  summary given to the writer; the output policy stops what it asks for (A2 0.00).
+- **Tokens per job fall** (3,610 at row 2 to 1,394 here, extractor prompt included) because
+  a facts block replaces the posting in both prompts.
+- **Not measured yet: screening accuracy with facts.** The obedient model has no opinion on
+  fit; band accuracy and AUC need the live run. Until then `scoring.extraction` is off by
+  default.
+- **Not covered: lies inside the schema.** An obedient extractor here also sets visa "yes"
+  and 0 years required; the canary-driven worst-case screener does not react to that, so
+  this table cannot show its effect. It is bounded by the enums and `clamp()`.
+
 ### Obedient model, held-out paraphrases
 
 The same pipeline on `evals/attacks/payloads_heldout.yaml`: the same goals in all four
@@ -204,33 +223,34 @@ languages, reworded, written before the detector rules and never used to tune th
 | 1 | + recipient and output policy | 0.78 [0.71, 0.86] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.73 [0.70, 0.77] | 0.00 | n/a | n/a | 3564 | 0.000s |
 | 2 | + sanitisation | 0.42 [0.32, 0.52] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.41 [0.37, 0.45] | 0.00 | n/a | n/a | 3545 | 0.001s |
 | 3 | + rules detector | 0.32 [0.24, 0.42] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.23 [0.20, 0.27] | 0.00 | n/a | n/a | 2372 | 0.000s |
+| 4 | + quarantined extraction | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.23 [0.20, 0.27] | 0.00 | n/a | n/a | 1911 | 0.000s |
 
 Latest row by language, concealment and placement (504 cases):
 
 | language | ASR, all goals | payload reach |
 |---|---|---|
-| egy | 0.07 | 0.25 |
-| en | 0.06 | 0.24 |
-| franco | 0.07 | 0.21 |
-| msa | 0.07 | 0.24 |
+| egy | 0.00 | 0.25 |
+| en | 0.00 | 0.24 |
+| franco | 0.00 | 0.21 |
+| msa | 0.00 | 0.24 |
 
 | variant | ASR, all goals | payload reach |
 |---|---|---|
 | base64 | 0.00 | 0.00 |
-| bidi | 0.17 | 0.55 |
+| bidi | 0.00 | 0.55 |
 | display_none | 0.00 | 0.00 |
 | fake_delimiter | 0.00 | 0.00 |
 | html_comment | 0.00 | 0.00 |
-| plain | 0.18 | 0.85 |
+| plain | 0.00 | 0.85 |
 | unicode_tags | 0.00 | 0.00 |
 | white_text | 0.00 | 0.00 |
-| zero_width | 0.20 | 0.57 |
+| zero_width | 0.00 | 0.57 |
 
 | placement | ASR, all goals | payload reach |
 |---|---|---|
-| end | 0.05 | 0.17 |
-| middle | 0.07 | 0.27 |
-| start | 0.07 | 0.27 |
+| end | 0.00 | 0.17 |
+| middle | 0.00 | 0.27 |
+| start | 0.00 | 0.27 |
 <!-- /security:obedient-heldout -->
 
 - **The rules generalise only partly: held-out A1 goes from 0.42 to 0.32 and reach from 0.41 to

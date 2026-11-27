@@ -119,7 +119,7 @@ worst-case model) is in [EVALS.md](EVALS.md), Layer 3.
 |---|---|---|
 | Sanitisation: hidden HTML at ingest (Python and Go), invisible and override characters, tag text, base64, NFKC at every prompt (**shipped**, `tests/test_sanitize.py`) | `jobradar/guard/sanitize.py`, `models.html_to_text`, `score.posting_text`, `ingest.StripHidden` | A1, A2, A5 |
 | Injection detector: rules in English, MSA, Egyptian Arabic and Franco-Arabic on normalised text, plus sanitiser findings; flagged postings quarantined before any model call; applier page scan (**shipped**, `tests/test_detect.py`). Prompt Guard 2: not built (see EVALS.md) | `jobradar/guard/detect.py`, `rules.yaml`, `pipeline.score_candidates`, `activities.score_job`, `jobradar guard scan-page` | A1, A2, A5, A7 |
-| Quarantined extraction: a tool-less model turns the posting into capped `JobFacts`; screener and writer never see raw text | ADR 0005 | A1, A2, A4 |
+| Quarantined extraction: a tool-less model turns the posting into capped `JobFacts`; screener sees no free text, writer only a checked summary (**shipped**, opt-in `scoring.extraction`, `tests/test_extract.py`) | `jobradar/guard/extract.py`, [ADR 0005](adr/0005-quarantined-extraction-for-untrusted-postings.md) | A1, A2, A4 |
 | Output policy on drafts: URLs, contacts, numbers, `answers`, echoed text (**shipped**, `tests/test_guard.py`) | `jobradar/guard/output.py`, `outreach.draft_one`, writer graph | A2, A4 |
 | Recipient policy: domain matches company, free-mail to review, WhatsApp + CV needs per-item approval, scam signals, contacts from visible text only (hidden HTML is cut before `extract_contacts`) (**shipped**) | `jobradar/guard/recipients.py`, `outreach.route`, `sendable` | A3, A7 |
 | Gateway-side approval checks: held drafts stored as `review`, which the gateway only approves from `draft` (**shipped**); approver identity not recorded yet | `agent/activities.py`, `store.DecideDraft` | A6 |
@@ -132,6 +132,10 @@ The ablation table in [EVALS.md](EVALS.md) reports each layer's numbers.
 
 - **A9 stays by design.** Free providers see CV text. The user chooses `LLM_PROVIDERS`; a
   paid or local provider removes the risk. Documented, not fixed.
+- **Lies inside the facts schema.** With extraction on, an extractor that obeys the posting
+  can still choose favourable enums (visa "yes", 0 years). Bounded by the enums and
+  `clamp()`; not measured by the canary-based eval.
+- **Extraction is opt-in** until a live run measures screening accuracy with facts.
 - **Subtle goal manipulation.** A posting that honestly overstates a role defeats any
   injection defence. Screening quality, not security, covers it.
 - **Classifiers are probabilistic.** Detector misses are expected; the structural layers

@@ -53,6 +53,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (`evals/attacks/payloads_heldout.yaml`, `--corpus heldout`): A1 0.42 -> 0.32 there, 0.41 ->
   0.00 on the templates the rules were written against; 0 of 52 clean postings flagged.
 
+- Quarantined extraction (`jobradar/guard/extract.py`, ADR 0005, opt-in
+  `scoring.extraction`): a tool-less model turns each posting into typed `JobFacts`; the
+  screening model reads facts (skills only from a fixed vocabulary), the writer adds a
+  detector-checked summary. Facts cached per job (SQLite `jobs.facts`, Postgres migration
+  `00002_job_facts.sql`). Worst case: screening-prompt payload reach 0.00 and held-out A1 0.00
+  even without the detector; tokens per job 3,610 -> 1,394.
+
 ### Changed
 - WhatsApp drafts (and email drafts to a flagged address) are no longer sendable until you
   approve each one with `jobradar approve <id>`.

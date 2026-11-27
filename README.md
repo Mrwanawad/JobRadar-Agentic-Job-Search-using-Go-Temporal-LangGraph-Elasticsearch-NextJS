@@ -214,7 +214,7 @@ the whole git history.
 - [Evals](docs/EVALS.md): labeled postings, prefilter CI gate, LLM screening eval, prompt-injection security eval (EN + Arabic)
 - [Security](docs/SECURITY.md): trust boundaries, secrets, data retention
 - [Threat model](docs/THREAT_MODEL.md): the agent's lethal trifecta, attacks A1-A10, OWASP / ATLAS mapping
-- [Decision records](docs/adr/): Temporal, Go + Python split, client-side RRF, Workers + Tunnel
+- [Decision records](docs/adr/): Temporal, Go + Python split, client-side RRF, Workers + Tunnel, quarantined extraction
 - [Sources](docs/ENDPOINTS.md): verified job-board endpoints and LLM free-tier limits
 - [Changelog](CHANGELOG.md)
 
