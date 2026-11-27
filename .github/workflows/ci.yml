@@ -72,3 +72,4 @@ jobs:
           lint: true
           breaking: false
           push: false
+          pr_comment: false  # CI token is read-only; results show in the job log
