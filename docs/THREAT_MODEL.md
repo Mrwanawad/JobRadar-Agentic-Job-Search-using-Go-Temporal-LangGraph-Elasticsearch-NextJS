@@ -138,6 +138,8 @@ The ablation table in [EVALS.md](EVALS.md) reports each layer's numbers.
   (extraction, recipient and output policy, hooks) are what must hold.
 - **The browser agent is not tested in CI.** Hooks are unit-tested with recorded tool calls;
   the live red-team run against local injected pages is manual and recorded in EVALS.md.
+- **Users can loosen the applier guard** (`guard:` in `profile.yaml`, up to `enabled:
+  false`). It is their browser and their call; `jobradar doctor` warns when it is off.
 - **Hooks see tool calls, not intent.** An allowed action on an allowed host (typing a true
   answer into a malicious form on the right ATS) is out of reach of a policy check.
 - **Arabic, Egyptian Arabic and Franco-Arabic coverage** is measured, not assumed; the

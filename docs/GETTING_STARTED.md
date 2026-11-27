@@ -72,7 +72,10 @@ The agent stops and hands the tab to you on CAPTCHAs, logins, account creation a
 "do not use AI" essays. It never types passwords. The plugin's guard hook checks every
 upload, page, script and typed value before Chrome acts: a blocked call stops that job with
 the reason, an unusual site or a private answer (salary, ID) asks you first.
-`uv run jobradar guard audit` lists what it blocked.
+`uv run jobradar guard audit` lists what it blocked. To ask less, add a `guard:` section to
+`profile.yaml` (see `profile.example.yaml`): sites you trust, `unknown_sites: allow`, extra
+files to upload, and which answers to confirm before typing (`ask_before_typing: []` never
+asks).
 
 ## 5. Sending emails (optional)
 

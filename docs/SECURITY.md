@@ -69,6 +69,11 @@ CLI and by a PreToolUse hook outside the model; the skills state the rest:
   Typing: never a `.env` secret or key-shaped string; private answers (salary, ID, birth date,
   address) ask first. It never auto-approves, a crash blocks the call, and every decision is
   logged to `data/guard_audit.jsonl` with typed values redacted (`jobradar guard audit`).
+  Users can loosen it in `profile.yaml` under `guard:` (extra trusted sites, `unknown_sites:
+  allow`, extra upload files, which answers to confirm, or `enabled: false`); the hard rules
+  (`file:`/local addresses, secrets, JavaScript network and cookie access, uploads outside
+  the allow list) do not change. `jobradar doctor` shows the settings and warns when the
+  plugin hook is not installed or the guard is off.
 
 - **No fabrication.** Form answers come from `profile.yaml` (`candidate`, `answers`) and the
   CV text only. Knockout questions get the truthful answer. Unknown required answers are asked.

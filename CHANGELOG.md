@@ -29,6 +29,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   cookie, storage or navigation access, and blocks secrets typed into forms (private answers
   ask first). Fails closed; decisions logged to `data/guard_audit.jsonl`
   (`jobradar guard audit`). Red-team careers pages in `evals/attacks/pages/`.
+  Configurable per user under `guard:` in `profile.yaml` (trusted sites, unknown-site
+  behaviour, extra uploads, which answers to confirm, on/off); `jobradar doctor` reports it.
+
+### Fixed (guard)
+- Nested standing answers (`salary: {egypt: {current: ...}}`) were never matched by the
+  draft and typing checks; answers are now flattened before checking.
 
 ### Changed
 - WhatsApp drafts (and email drafts to a flagged address) are no longer sendable until you
