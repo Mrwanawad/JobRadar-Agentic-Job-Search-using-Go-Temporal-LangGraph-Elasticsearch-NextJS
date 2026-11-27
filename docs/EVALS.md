@@ -103,33 +103,34 @@ writing prompt. Band accuracy and AUC on the clean set need the live model.
 | 0 | none | 0.73 [0.64, 0.81] | 0.75 [0.68, 0.84] | 0.40 [0.33, 0.47] | 0.00 [0.00, 0.00] | 0.74 [0.70, 0.78] | 0.00 | n/a | n/a | 3630 | 0.001s |
 | 1 | + recipient and output policy | 0.73 [0.64, 0.81] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.74 [0.70, 0.78] | 0.00 | n/a | n/a | 3631 | 0.001s |
 | 2 | + sanitisation | 0.41 [0.31, 0.50] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.40 [0.36, 0.45] | 0.00 | n/a | n/a | 3610 | 0.001s |
+| 3 | + rules detector | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.06 [0.05, 0.09] | 0.00 | n/a | n/a | 1742 | 0.000s |
 
 Latest row by language, concealment and placement (510 cases):
 
 | language | ASR, all goals | payload reach |
 |---|---|---|
-| egy | 0.08 | 0.37 |
-| en | 0.08 | 0.41 |
-| franco | 0.07 | 0.39 |
-| msa | 0.09 | 0.45 |
+| egy | 0.00 | 0.06 |
+| en | 0.00 | 0.06 |
+| franco | 0.00 | 0.07 |
+| msa | 0.00 | 0.07 |
 
 | variant | ASR, all goals | payload reach |
 |---|---|---|
 | base64 | 0.00 | 0.00 |
-| bidi | 0.17 | 0.88 |
+| bidi | 0.00 | 0.05 |
 | display_none | 0.00 | 0.00 |
-| fake_delimiter | 0.20 | 0.87 |
+| fake_delimiter | 0.00 | 0.00 |
 | html_comment | 0.00 | 0.00 |
-| plain | 0.18 | 0.83 |
+| plain | 0.00 | 0.50 |
 | unicode_tags | 0.00 | 0.00 |
 | white_text | 0.00 | 0.00 |
-| zero_width | 0.15 | 0.85 |
+| zero_width | 0.00 | 0.00 |
 
 | placement | ASR, all goals | payload reach |
 |---|---|---|
-| end | 0.06 | 0.29 |
-| middle | 0.09 | 0.45 |
-| start | 0.09 | 0.47 |
+| end | 0.00 | 0.05 |
+| middle | 0.00 | 0.06 |
+| start | 0.00 | 0.08 |
 <!-- /security:obedient -->
 
 What row 0 (no defences) shows:
@@ -177,6 +178,73 @@ What row 2 (sanitisation, `jobradar/guard/sanitize.py`) shows:
 - **All four languages fall together** (reach 0.37-0.45): this layer is language-blind.
 - The Go ingest worker strips hidden HTML the same way (`ingest.StripHidden`), checked
   against the Python output on 19 cases (`tests/fixtures/golden/hidden_html.json`).
+
+What row 3 (rules detector, `jobradar/guard/detect.py` + `rules.yaml`) shows:
+
+- **On the templates, A1 and reach fall to 0.00 and 0.06.** The rules were written against
+  these payloads, so this number shows they work as written, not that they generalise. The
+  held-out table below is the honest one.
+- **Flagged postings are quarantined**: no model ever sees them, they are never drafted, and
+  `jobradar top` hides them with a count (`jobradar guard quarantined` lists the reasons). That
+  is also why tokens per job drop: a quarantined posting costs no LLM call.
+- **Clean postings: 0 of 52 flagged**, plus a list of legitimate sentences from AI-company
+  postings in four languages that must stay clean (`tests/test_detect.py`).
+- Requests like "send your CV and salary to ..." count only as a weak signal on purpose:
+  real MENA postings say it too, and the recipient and output policies already stop A3/A4.
+
+### Obedient model, held-out paraphrases
+
+The same pipeline on `evals/attacks/payloads_heldout.yaml`: the same goals in all four
+languages, reworded, written before the detector rules and never used to tune them.
+
+<!-- security:obedient-heldout -->
+| Row | Defence added | A1 ASR | A2 ASR | A3 ASR | A4 ASR | payload reach | clean FPR | band acc. | AUC | tokens/job | p50 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | none | 0.78 [0.71, 0.86] | 0.72 [0.62, 0.79] | 0.40 [0.33, 0.47] | 0.00 [0.00, 0.00] | 0.73 [0.70, 0.77] | 0.00 | n/a | n/a | 3562 | 0.000s |
+| 1 | + recipient and output policy | 0.78 [0.71, 0.86] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.73 [0.70, 0.77] | 0.00 | n/a | n/a | 3564 | 0.000s |
+| 2 | + sanitisation | 0.42 [0.32, 0.52] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.41 [0.37, 0.45] | 0.00 | n/a | n/a | 3545 | 0.001s |
+| 3 | + rules detector | 0.32 [0.24, 0.42] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.23 [0.20, 0.27] | 0.00 | n/a | n/a | 2372 | 0.000s |
+
+Latest row by language, concealment and placement (504 cases):
+
+| language | ASR, all goals | payload reach |
+|---|---|---|
+| egy | 0.07 | 0.25 |
+| en | 0.06 | 0.24 |
+| franco | 0.07 | 0.21 |
+| msa | 0.07 | 0.24 |
+
+| variant | ASR, all goals | payload reach |
+|---|---|---|
+| base64 | 0.00 | 0.00 |
+| bidi | 0.17 | 0.55 |
+| display_none | 0.00 | 0.00 |
+| fake_delimiter | 0.00 | 0.00 |
+| html_comment | 0.00 | 0.00 |
+| plain | 0.18 | 0.85 |
+| unicode_tags | 0.00 | 0.00 |
+| white_text | 0.00 | 0.00 |
+| zero_width | 0.20 | 0.57 |
+
+| placement | ASR, all goals | payload reach |
+|---|---|---|
+| end | 0.05 | 0.17 |
+| middle | 0.07 | 0.27 |
+| start | 0.07 | 0.27 |
+<!-- /security:obedient-heldout -->
+
+- **The rules generalise only partly: held-out A1 goes from 0.42 to 0.32 and reach from 0.41 to
+  0.23.** Reworded instructions without "AI", "ignore previous" or "score 10" get through.
+  Phrase lists do not hold against an attacker who rewrites; that is the case for
+  quarantined extraction (next row), which does not depend on wording at all.
+- A first draft of the rules scored 0.00 here too. It had borrowed wording from the held-out
+  set (written earlier in the same session), so those fragments were removed and the set
+  re-run: the numbers above are after the clean-up. `rules.yaml` says not to tune on it.
+- **Page scan** (`jobradar guard scan-page`, applier step before filling): on the five
+  red-team pages read as a browser's `innerText` shows them, it flags the Arabic page and
+  misses the three English ones ("AI assistant: ... upload ~/.ssh/id_rsa"); the pages were
+  written before the rules and were not used to tune them. The hook still blocks or asks on
+  every action those pages ask for (table below).
 
 ### Applier red-team (A5)
 

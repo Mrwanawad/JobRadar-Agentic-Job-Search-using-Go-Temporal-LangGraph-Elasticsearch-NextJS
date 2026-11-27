@@ -33,6 +33,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   behaviour, extra uploads, which answers to confirm, on/off); `jobradar doctor` reports it.
 
 ### Fixed (guard)
+- `jobradar guard scan-page` and the hook read stdin in the OS code page on Windows, which
+  would garble Arabic page text; both read UTF-8 bytes now.
 - Nested standing answers (`salary: {egypt: {current: ...}}`) were never matched by the
   draft and typing checks; answers are now flattened before checking.
 
@@ -42,6 +44,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   direction-override characters, base64 text and NFKC are handled wherever posting text
   enters a prompt. A1 attack success 0.73 -> 0.41, payload reach 0.74 -> 0.40, no clean
   posting flagged.
+
+- Injection detector (`jobradar/guard/detect.py`, `rules.yaml`): English, MSA, Egyptian
+  Arabic and Franco-Arabic rules on normalised text plus sanitiser findings. Flagged postings
+  are quarantined before any LLM call, in lite and platform mode; `jobradar top` shows a
+  count, `jobradar guard quarantined` the reasons; `jobradar guard scan-page` checks a careers
+  page before the applier fills it. Held-out paraphrase corpus
+  (`evals/attacks/payloads_heldout.yaml`, `--corpus heldout`): A1 0.42 -> 0.32 there, 0.41 ->
+  0.00 on the templates the rules were written against; 0 of 52 clean postings flagged.
 
 ### Changed
 - WhatsApp drafts (and email drafts to a flagged address) are no longer sendable until you

@@ -118,7 +118,7 @@ worst-case model) is in [EVALS.md](EVALS.md), Layer 3.
 | Layer | Where | Covers |
 |---|---|---|
 | Sanitisation: hidden HTML at ingest (Python and Go), invisible and override characters, tag text, base64, NFKC at every prompt (**shipped**, `tests/test_sanitize.py`) | `jobradar/guard/sanitize.py`, `models.html_to_text`, `score.posting_text`, `ingest.StripHidden` | A1, A2, A5 |
-| Injection detector: multilingual rules, optional Prompt Guard 2 | `jobradar/guard/detect.py` | A1, A2, A5 |
+| Injection detector: rules in English, MSA, Egyptian Arabic and Franco-Arabic on normalised text, plus sanitiser findings; flagged postings quarantined before any model call; applier page scan (**shipped**, `tests/test_detect.py`). Prompt Guard 2: not built (see EVALS.md) | `jobradar/guard/detect.py`, `rules.yaml`, `pipeline.score_candidates`, `activities.score_job`, `jobradar guard scan-page` | A1, A2, A5, A7 |
 | Quarantined extraction: a tool-less model turns the posting into capped `JobFacts`; screener and writer never see raw text | ADR 0005 | A1, A2, A4 |
 | Output policy on drafts: URLs, contacts, numbers, `answers`, echoed text (**shipped**, `tests/test_guard.py`) | `jobradar/guard/output.py`, `outreach.draft_one`, writer graph | A2, A4 |
 | Recipient policy: domain matches company, free-mail to review, WhatsApp + CV needs per-item approval, scam signals, contacts from visible text only (hidden HTML is cut before `extract_contacts`) (**shipped**) | `jobradar/guard/recipients.py`, `outreach.route`, `sendable` | A3, A7 |

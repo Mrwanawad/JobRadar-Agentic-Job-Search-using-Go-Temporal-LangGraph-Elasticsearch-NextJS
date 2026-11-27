@@ -95,6 +95,13 @@ CLI and by a PreToolUse hook outside the model; the skills state the rest:
   Where posting text enters a prompt, invisible, tag and direction-override characters are
   removed, base64 that decodes to text is replaced, and text is NFKC-normalised. What was
   hidden is kept as a finding for the detector.
+- **Injection detector and quarantine (enforced, `jobradar/guard/detect.py`).** Rules in
+  English, Modern Standard Arabic, Egyptian Arabic and Franco-Arabic (`rules.yaml`), run on
+  normalised text together with what the sanitiser removed. A flagged posting is quarantined
+  before any model call: never scored, drafted or shown in `jobradar top`
+  (`jobradar guard quarantined`). The applier runs `jobradar guard scan-page` on each careers
+  page before filling it and hands the tab back when it is flagged. Rules are a phrase list:
+  the held-out results in EVALS.md show reworded attacks get past them.
 - **Output policy (enforced, `jobradar/guard/output.py`).** Drafts may contain only the
   candidate's own links, email and phone, no private form answers, only numbers found in the
   CV or posting, no long spans copied from the posting, and plain text. A violating draft
