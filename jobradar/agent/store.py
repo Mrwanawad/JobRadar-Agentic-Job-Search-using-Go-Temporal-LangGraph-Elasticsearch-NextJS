@@ -15,7 +15,7 @@ from jobradar.agent import profiles
 from jobradar.config import Profile
 
 JOB_COLS = """j.uid, j.fingerprint, j.source, j.company, j.title, j.location, j.remote, j.url,
-    j.apply_url, j.description, j.posted_at, j.salary, j.tags, j.emails, j.phones"""
+    j.apply_url, j.description, j.posted_at, j.salary, j.tags, j.emails, j.phones, j.facts"""
 
 
 @dataclass
@@ -127,6 +127,10 @@ class AgentStore:
         if row is None:
             raise LookupError(f"job {uid} not found")
         return row
+
+    def save_facts(self, uid: str, facts: dict[str, Any]) -> None:
+        with self.pool.connection() as c:
+            c.execute("UPDATE jobs SET facts = %s WHERE uid = %s", (Jsonb(facts), uid))
 
     def job_with_assessment(self, profile_id: str, uid: str) -> dict[str, Any]:
         with self.pool.connection() as c:

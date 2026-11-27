@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from jobradar.config import Profile
 from jobradar.guard import output
+from jobradar.guard.extract import render
 from jobradar.llm import LLMResult, parse_json
 from jobradar.outreach import draft_messages, finish_draft
 from jobradar.score import MAX_DESC_CHARS, build_prompt, clamp, posting_text
@@ -139,10 +140,10 @@ def screening_graph(llm: LLM) -> Any:
 
 
 def screen(
-    llm: LLM, profile: Profile, cv: str, job: Mapping[str, Any]
+    llm: LLM, profile: Profile, cv: str, job: Mapping[str, Any], facts: Any = None
 ) -> tuple[float, dict[str, Any], str]:
     with _span("agent.screen"):
-        out = screening_graph(llm).invoke({"messages": build_prompt(profile, cv, job)})
+        out = screening_graph(llm).invoke({"messages": build_prompt(profile, cv, job, facts)})
     return out["score"], out["assessment"], out["by"]
 
 
@@ -219,7 +220,12 @@ def _policy(
 
 
 def writer_graph(
-    llm: LLM, cv: str, job: Mapping[str, Any], channel: str, profile: Profile | None = None
+    llm: LLM,
+    cv: str,
+    job: Mapping[str, Any],
+    channel: str,
+    profile: Profile | None = None,
+    facts: Any = None,
 ) -> Any:
     def draft(s: WriteState) -> WriteState:
         with _span("write.draft"):
@@ -231,7 +237,11 @@ def writer_graph(
             cv=cv,
             company=job["company"],
             title=job["title"],
-            description=posting_text(job)[: MAX_DESC_CHARS // 2],
+            description=(
+                render(facts, profile, for_writer=True)
+                if facts is not None and profile is not None
+                else posting_text(job)[: MAX_DESC_CHARS // 2]
+            ),
             channel=channel,
             subject=d.get("subject", ""),
             body=d.get("body", ""),
@@ -296,12 +306,17 @@ def writer_graph(
 
 
 def write(
-    llm: LLM, profile: Profile, cv: str, job: Mapping[str, Any], channel: str
+    llm: LLM,
+    profile: Profile,
+    cv: str,
+    job: Mapping[str, Any],
+    channel: str,
+    facts: Any = None,
 ) -> tuple[str, str, dict[str, Any], int]:
     """(subject, body, final critique, revisions). Raises if every draft fabricated."""
     with _span("agent.write"):
-        out = writer_graph(llm, cv, job, channel, profile).invoke(
-            {"messages": draft_messages(profile, cv, job, channel)}
+        out = writer_graph(llm, cv, job, channel, profile, facts).invoke(
+            {"messages": draft_messages(profile, cv, job, channel, facts)}
         )
     if out.get("best_score", -1.0) < 0:
         raise ValueError(

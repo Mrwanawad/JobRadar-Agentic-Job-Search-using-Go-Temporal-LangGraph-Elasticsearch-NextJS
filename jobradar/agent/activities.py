@@ -19,9 +19,11 @@ from typing import Any
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
+from jobradar import guard
 from jobradar.agent import graphs
 from jobradar.agent.search import JobIndex
 from jobradar.agent.store import AgentStore
+from jobradar.guard import extract
 from jobradar.guard.detect import check_posting
 from jobradar.llm import CAPTURE_CONTENT, LLMClient, LLMError, LLMResult
 from jobradar.outreach import route
@@ -141,7 +143,17 @@ class Agent:
             self.store.save_score(inp.profile_id, inp.job_uid, 0.0, data, "guard")
             return pb.ScoreJobResult(job_uid=inp.job_uid, score=0.0, scored_by="guard")
         with _heartbeating(), _content_policy(sp.kind):
-            score, data, by = graphs.screen(self.llm, sp.profile, sp.cv_text, job)
+            facts = None
+            if sp.profile.scoring.extraction and guard.enabled("extract"):
+                facts = extract.cached(job) or extract.extract(self.llm, job)
+                self.store.save_facts(inp.job_uid, facts.model_dump())
+                fv = extract.check(facts)
+                if fv.flagged:
+                    data = {"quarantined": fv.label, "guard": fv.hits, "reasons": [],
+                            "red_flags": ["facts " + fv.reason()]}  # fmt: skip
+                    self.store.save_score(inp.profile_id, inp.job_uid, 0.0, data, "guard")
+                    return pb.ScoreJobResult(job_uid=inp.job_uid, score=0.0, scored_by="guard")
+            score, data, by = graphs.screen(self.llm, sp.profile, sp.cv_text, job, facts)
         self.store.save_score(inp.profile_id, inp.job_uid, score, data, by)
         return pb.ScoreJobResult(job_uid=inp.job_uid, score=score, scored_by=by)
 
@@ -156,7 +168,7 @@ class Agent:
         with _heartbeating(), _content_policy(sp.kind):
             try:
                 subject, body, critique, revisions = graphs.write(
-                    self.llm, sp.profile, sp.cv_text, job, channel
+                    self.llm, sp.profile, sp.cv_text, job, channel, extract.cached(job)
                 )
             except ValueError as e:  # fabricated every time: not worth retrying
                 raise ApplicationError(str(e), type="DraftRejected", non_retryable=True) from e

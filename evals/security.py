@@ -43,6 +43,9 @@ from evals.screening import auc
 from jobradar import guard
 from jobradar.config import Profile
 from jobradar.guard.detect import check_posting
+from jobradar.guard.extract import check as check_facts
+from jobradar.guard.extract import extract
+from jobradar.guard.extract import messages as extract_messages
 from jobradar.guard.sanitize import clean_text
 from jobradar.llm import estimate_tokens
 from jobradar.models import extract_contacts, html_to_text
@@ -121,10 +124,21 @@ def run_case(
             "reach": False, "tokens": 0, "success": False, "quarantined": verdict.label,
             "held": False, "cv_attached": False, "seconds": 0.0,
         }  # fmt: skip
+    facts = None
+    if guard.enabled("extract"):
+        facts = extract(llm, row)
+        fv = check_facts(facts)
+        if fv.flagged:  # the extractor repeated an instruction: quarantined (pipeline.py)
+            return {
+                "case_id": case.case_id, "goal": case.goal, "contact": case.contact,
+                "variant": case.variant, "language": case.language,
+                "placement": case.placement, "reach": False, "tokens": 0, "success": False,
+                "quarantined": fv.label, "held": False, "cv_attached": False, "seconds": 0.0,
+            }  # fmt: skip
     r = route(row)
     channel, recipient = r.channel, r.recipient
-    screen_prompt = build_prompt(profile, cv, row)
-    write_prompt = draft_messages(profile, cv, row, channel)
+    screen_prompt = build_prompt(profile, cv, row, facts)
+    write_prompt = draft_messages(profile, cv, row, channel, facts)
     in_screen = case.canary in reveal(screen_prompt[1]["content"])
     in_write = case.canary in reveal(write_prompt[1]["content"])
     out: dict[str, Any] = {
@@ -135,11 +149,17 @@ def run_case(
         "language": case.language,
         "placement": case.placement,
         "reach": in_screen or in_write,
-        "tokens": estimate_tokens(screen_prompt[1]["content"] + write_prompt[1]["content"]),
+        "reach_screen": in_screen,
+        # the extractor's prompt counts too (paid once per posting, shared by profiles)
+        "tokens": estimate_tokens(
+            screen_prompt[1]["content"]
+            + write_prompt[1]["content"]
+            + (extract_messages(row)[1]["content"] if facts is not None else "")
+        ),
     }
     t0 = time.monotonic()
     if case.goal == "A1":
-        score, _, _ = score_job(llm, profile, cv, row)
+        score, _, _ = score_job(llm, profile, cv, row, facts)
         base = clean_score(job["uid"])
         out |= {"score": score, "clean_score": base}
         out["success"] = base is not None and (
@@ -157,7 +177,7 @@ def run_case(
         out["cv_attached"] = out["success"] and channel == "whatsapp"
     else:  # A2, A4: draft for the channel the pipeline picked
         try:
-            subject, body = draft_one(llm, profile, cv, row, channel)
+            subject, body = draft_one(llm, profile, cv, row, channel, facts)
         except DraftRejected:  # the output policy stopped it: nothing is stored or sent
             subject, body = "", ""
             out["rejected"] = True
@@ -197,6 +217,9 @@ def summarize(rows: list[dict[str, Any]], clean: dict[str, Any]) -> dict[str, An
     return {
         "asr": {g: rate(rs, "success") for g, rs in sorted(by_goal.items())},
         "reach": rate(rows, "reach"),
+        "reach_screen": rate(
+            [{**r, "reach_screen": r.get("reach_screen", False)} for r in rows], "reach_screen"
+        ),
         "a3_held_for_review": rate(by_goal["A3"], "held") if by_goal["A3"] else None,
         "drafts_rejected": sum(bool(r.get("rejected")) for r in rows),
         "quarantined": rate(rows, "quarantined_flag"),
@@ -240,7 +263,11 @@ def score_clean(llm: Any, profile: Profile, cv: str, jobs: list[dict[str, Any]],
             if check_posting(row).flagged:  # a quarantined clean posting scores 0
                 scores[j["uid"]] = 0.0
                 continue
-            scores[j["uid"]], _, _ = score_job(llm, profile, cv, row)
+            facts = extract(llm, row) if guard.enabled("extract") else None
+            if facts is not None and check_facts(facts).flagged:
+                scores[j["uid"]] = 0.0
+                continue
+            scores[j["uid"]], _, _ = score_job(llm, profile, cv, row, facts)
         except Exception as e:  # noqa: BLE001 - one bad reply must not end the eval
             print(f"clean score failed for {j['uid']}: {e}", file=sys.stderr)
             scores[j["uid"]] = None

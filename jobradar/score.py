@@ -82,8 +82,17 @@ def posting_text(job: Mapping[str, Any]) -> str:
     return clean_text(job["description"]).text
 
 
-def build_prompt(profile: Profile, cv: str, job: Mapping[str, Any]) -> list[dict[str, str]]:
-    """Messages for one screening call. `job` is a SQLite row or a Postgres dict row."""
+def build_prompt(
+    profile: Profile, cv: str, job: Mapping[str, Any], facts: Any = None
+) -> list[dict[str, str]]:
+    """Messages for one screening call. `job` is a SQLite row or a Postgres dict row. With
+    `facts` (guard/extract.py JobFacts) the posting text is replaced by structured facts."""
+    if facts is not None:
+        from jobradar.guard.extract import render
+
+        description = render(facts, profile)
+    else:
+        description = posting_text(job)[:MAX_DESC_CHARS] or "(no description available)"
     prompt = TEMPLATE.format(
         cv=cv,
         constraints=constraints_text(profile),
@@ -93,16 +102,16 @@ def build_prompt(profile: Profile, cv: str, job: Mapping[str, Any]) -> list[dict
         remote={1: "yes", 0: "no"}.get(job["remote"], "unknown"),
         salary=clean_text(job["salary"]).text or "not stated",
         posted_at=job["posted_at"] or "unknown",
-        description=posting_text(job)[:MAX_DESC_CHARS] or "(no description available)",
+        description=description,
     )
     return [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]
 
 
 def score_job(
-    llm: LLMClient, profile: Profile, cv: str, row: Mapping[str, Any]
+    llm: LLMClient, profile: Profile, cv: str, row: Mapping[str, Any], facts: Any = None
 ) -> tuple[float, dict[str, Any], str]:
     data, res = llm.chat_json(
-        build_prompt(profile, cv, row),
+        build_prompt(profile, cv, row, facts),
         max_tokens=4000,  # some free models reason in the visible reply
     )
     if not isinstance(data, dict):

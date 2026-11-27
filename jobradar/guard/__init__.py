@@ -4,6 +4,8 @@ Deterministic code decides; the LLM only proposes. Each module is one layer of t
 table in docs/EVALS.md (Layer 3):
 
 - sanitize: what a model reads of a posting is what a person sees (A1, A2, A5)
+- detect: postings that talk to a model are quarantined (A1, A2, A5)
+- extract: privileged models read typed facts, not the posting (A1, A2, A4)
 - recipients: who a draft may go to (A3, A7)
 - output: what a draft may say (A2, A4)
 
@@ -17,7 +19,7 @@ from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from typing import Any
 
-LAYERS = ("sanitize", "detect", "recipients", "output")
+LAYERS = ("sanitize", "detect", "extract", "recipients", "output")
 _off: set[str] = set()
 
 

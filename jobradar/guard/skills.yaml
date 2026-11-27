@@ -1,0 +1,160 @@
+# Skill vocabulary for quarantined extraction (jobradar/guard/extract.py). The screening
+# model only ever sees extracted skills that appear here or in the profile's `skills`, so an
+# attacker cannot smuggle a sentence into the screening prompt as a "skill". Lower case.
+# Unknown skills are counted ("+N other skills"), not shown. Add real skills freely.
+- python
+- java
+- javascript
+- typescript
+- go
+- golang
+- rust
+- c
+- c++
+- c#
+- kotlin
+- swift
+- scala
+- ruby
+- php
+- r
+- sql
+- bash
+- django
+- flask
+- fastapi
+- node.js
+- react
+- next.js
+- vue
+- angular
+- spring
+- .net
+- graphql
+- rest
+- grpc
+- postgresql
+- mysql
+- sqlite
+- mongodb
+- redis
+- elasticsearch
+- opensearch
+- kafka
+- rabbitmq
+- celery
+- temporal
+- airflow
+- dbt
+- spark
+- pyspark
+- hadoop
+- snowflake
+- bigquery
+- databricks
+- pgvector
+- pinecone
+- weaviate
+- qdrant
+- milvus
+- chroma
+- faiss
+- vector search
+- vector databases
+- aws
+- gcp
+- azure
+- docker
+- kubernetes
+- terraform
+- helm
+- ci/cd
+- github actions
+- linux
+- git
+- microservices
+- distributed systems
+- system design
+- observability
+- opentelemetry
+- prometheus
+- grafana
+- mlops
+- llmops
+- machine learning
+- deep learning
+- nlp
+- computer vision
+- speech recognition
+- reinforcement learning
+- recommender systems
+- statistics
+- data science
+- data engineering
+- data analysis
+- pandas
+- numpy
+- scikit-learn
+- xgboost
+- lightgbm
+- pytorch
+- tensorflow
+- jax
+- keras
+- hugging face
+- transformers
+- llm
+- llms
+- large language models
+- generative ai
+- genai
+- rag
+- retrieval-augmented generation
+- agents
+- ai agents
+- agentic ai
+- multi-agent systems
+- tool use
+- function calling
+- prompt engineering
+- evaluation
+- evals
+- llm evaluation
+- fine-tuning
+- lora
+- qlora
+- rlhf
+- embeddings
+- semantic search
+- langchain
+- langgraph
+- llamaindex
+- crewai
+- autogen
+- dspy
+- openai
+- anthropic
+- claude
+- gemini
+- llama
+- mistral
+- vllm
+- triton
+- onnx
+- cuda
+- whisper
+- tts
+- voice agents
+- elevenlabs
+- twilio
+- websockets
+- streaming
+- security
+- guardrails
+- prompt injection
+- product management
+- leadership
+- mentoring
+- communication
+- english
+- arabic

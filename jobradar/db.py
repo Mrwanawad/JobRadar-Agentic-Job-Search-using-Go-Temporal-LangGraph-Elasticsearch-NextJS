@@ -101,7 +101,11 @@ class DB:
         self.conn.executescript(SCHEMA)
         # Where the posting was discovered (LinkedIn post, Wuzzuf...), separate from how we applied.
         # guard: why an item is held for review; approved_at: when a person approved it.
-        added = {"outbox": ("found_on", "guard", "approved_at"), "processes": ("found_on",)}
+        added = {
+            "outbox": ("found_on", "guard", "approved_at"),
+            "processes": ("found_on",),
+            "jobs": ("facts",),
+        }
         for table, wanted in added.items():
             cols = {r["name"] for r in self.conn.execute(f"PRAGMA table_info({table})")}
             for col in wanted:
@@ -160,6 +164,10 @@ class DB:
             ).fetchone()
             is not None
         )
+
+    def save_facts(self, uid: str, facts: dict[str, Any]) -> None:
+        self.conn.execute("UPDATE jobs SET facts=? WHERE uid=?", (json.dumps(facts), uid))
+        self.conn.commit()
 
     def quarantine(self, uid: str, reason: str) -> None:
         """The detector flagged this posting: never scored by a model, drafted or shown."""

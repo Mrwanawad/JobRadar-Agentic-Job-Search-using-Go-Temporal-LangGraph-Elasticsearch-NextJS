@@ -124,6 +124,9 @@ scoring:
   max_age_days: 30
   max_llm_per_run: 60
   shortlist_min: 7
+  # Screening and writing models read typed facts a tool-less model extracted, never the
+  # posting text (docs/adr/0005). One extra LLM call per new posting. Off until measured live.
+  extraction: false
 
 outreach:
   # Scored jobs at or above this get a drafted application.

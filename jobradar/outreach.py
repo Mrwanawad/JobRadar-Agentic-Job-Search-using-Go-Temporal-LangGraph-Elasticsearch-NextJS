@@ -18,7 +18,7 @@ from typing import Any
 
 from jobradar.config import ROOT, Profile
 from jobradar.db import DB
-from jobradar.guard import output, recipients
+from jobradar.guard import extract, output, recipients
 from jobradar.guard.sanitize import clean_text
 from jobradar.llm import LLMClient, LLMError
 from jobradar.score import MAX_DESC_CHARS, cv_text, posting_text
@@ -143,9 +143,16 @@ def channel_for(row: Mapping[str, Any]) -> tuple[str, str]:
 
 
 def draft_messages(
-    profile: Profile, cv: str, row: Mapping[str, Any], channel: str
+    profile: Profile, cv: str, row: Mapping[str, Any], channel: str, facts: Any = None
 ) -> list[dict[str, str]]:
-    """Messages for one drafting call. `row` is a job joined with its screening result."""
+    """Messages for one drafting call. `row` is a job joined with its screening result. With
+    `facts` (guard/extract.py) the writer gets structured facts, not the posting text."""
+    if facts is not None:
+        from jobradar.guard.extract import render
+
+        description = render(facts, profile, for_writer=True)
+    else:
+        description = posting_text(row)[:MAX_DESC_CHARS]
     res = row["llm_json"]
     res = res if isinstance(res, dict) else json.loads(res or "{}")
     kind, extra, subject_note = KINDS[channel]
@@ -162,7 +169,7 @@ def draft_messages(
         location=clean_text(row["location"]).text or "unknown",
         pitch=res.get("pitch_angle", ""),
         reasons="; ".join(res.get("reasons", [])),
-        description=posting_text(row)[:MAX_DESC_CHARS],
+        description=description,
         kind=kind,
         tone=o.tone,
         extra=extra,
@@ -193,10 +200,15 @@ class DraftRejected(ValueError):
 
 
 def draft_one(
-    llm: LLMClient, profile: Profile, cv: str, row: Mapping[str, Any], channel: str
+    llm: LLMClient,
+    profile: Profile,
+    cv: str,
+    row: Mapping[str, Any],
+    channel: str,
+    facts: Any = None,
 ) -> tuple[str, str]:
     """Draft, check against the output policy, and give the model one chance to fix it."""
-    messages = draft_messages(profile, cv, row, channel)
+    messages = draft_messages(profile, cv, row, channel, facts)
     data, _ = llm.chat_json(messages, max_tokens=4000)
     subject, body = finish_draft(profile, row, channel, data)
     problems = output.check(f"{subject}\n{body}", channel, profile, cv, row)
@@ -243,7 +255,7 @@ def draft_applications(
     for row in rows:
         r = route(row)
         try:
-            subject, body = draft_one(llm, profile, cv, row, r.channel)
+            subject, body = draft_one(llm, profile, cv, row, r.channel, extract.cached(row))
         except LLMError as e:
             stats.stopped = str(e)
             break

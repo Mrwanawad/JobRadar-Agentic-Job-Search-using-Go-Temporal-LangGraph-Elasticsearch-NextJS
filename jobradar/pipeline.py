@@ -9,9 +9,11 @@ from dataclasses import dataclass, field
 
 import httpx
 
+from jobradar import guard
 from jobradar.ats import fetch_board
 from jobradar.config import Profile, load_companies
 from jobradar.db import DB
+from jobradar.guard import extract
 from jobradar.guard.detect import check_posting
 from jobradar.llm import LLMClient, LLMError
 from jobradar.models import Job
@@ -108,7 +110,16 @@ def score_candidates(
             stats.quarantined += 1
             continue
         try:
-            score, result, by = score_job(llm, profile, cv, row)
+            facts = None
+            if profile.scoring.extraction and guard.enabled("extract"):
+                facts = extract.cached(row) or extract.extract(llm, row)
+                db.save_facts(row["uid"], facts.model_dump())
+                fv = extract.check(facts)
+                if fv.flagged:  # the extractor repeated an instruction
+                    db.quarantine(row["uid"], "facts " + fv.reason())
+                    stats.quarantined += 1
+                    continue
+            score, result, by = score_job(llm, profile, cv, row, facts)
         except LLMError as e:
             stats.stopped = str(e)  # every provider is out; retry next run
             break

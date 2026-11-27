@@ -57,6 +57,10 @@ class Scoring(BaseModel):
     max_age_days: int = 30
     max_llm_per_run: int = 60
     shortlist_min: int = 7
+    # Quarantined extraction (jobradar/guard/extract.py): the screening and writing models
+    # read typed facts, not the posting text. One extra LLM call per new posting (cached).
+    # Off until a live eval shows screening accuracy holds (docs/EVALS.md, Layer 3).
+    extraction: bool = False
 
 
 class Outreach(BaseModel):

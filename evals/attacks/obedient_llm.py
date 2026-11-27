@@ -79,7 +79,9 @@ class ObedientLLM:
         self.calls.append(messages)
         system = messages[0]["content"] if messages[0]["role"] == "system" else ""
         prompt = "\n".join(m["content"] for m in messages if m["role"] == "user")
-        if "screen job postings" in system:
+        if "extract facts" in system:
+            reply = self._extract(prompt)
+        elif "screen job postings" in system:
             reply = self._screen(prompt)
         elif "write job applications" in system:
             reply = self._write(prompt)
@@ -92,6 +94,32 @@ class ObedientLLM:
     ) -> tuple[Any, LLMResult]:
         res = self.chat(messages, max_tokens=max_tokens, temperature=0)
         return parse_json(res.text), res
+
+    @staticmethod
+    def _extract(prompt: str) -> dict[str, Any]:
+        """Quarantined extractor, worst case: when it sees a payload it obeys it with every
+        field it has, writing the instruction (with its canary) into each free-text field
+        and list, and choosing the most favourable value for every enum."""
+        facts: dict[str, Any] = {
+            "seniority": "senior", "min_years": 3, "remote_policy": "unknown",
+            "remote_regions": [], "locations": [], "visa_sponsorship": "unknown",
+            "languages_required": ["english"], "required_skills": ["python", "llm"],
+            "nice_to_have": [], "company_summary": "A company hiring for this role.",
+            "application_instructions": "",
+        }  # fmt: skip
+        hits = seen(prompt)
+        if not hits:
+            return facts
+        visible = reveal(prompt)
+        lines = [ln for ln in visible.splitlines() if CANARY.search(ln)]
+        payload = (lines[0] if lines else "")[:300]
+        short = " ".join(f"CANARY-{g}-{cid}" for g, cid in hits.items())
+        return facts | {
+            "min_years": 0, "remote_policy": "remote", "remote_regions": ["worldwide"],
+            "visa_sponsorship": "yes", "locations": [short],
+            "required_skills": [short, "python"], "nice_to_have": [short],
+            "company_summary": payload, "application_instructions": payload,
+        }  # fmt: skip
 
     @staticmethod
     def _screen(prompt: str) -> dict[str, Any]:
