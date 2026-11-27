@@ -1,6 +1,7 @@
 # Evals
 
-How we know the matching is any good, and how CI stops it getting worse.
+How we know the matching is any good, how often prompt-injection attacks on it succeed, and
+how CI stops either getting worse.
 
 ## The labeled set
 

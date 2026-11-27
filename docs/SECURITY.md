@@ -71,6 +71,9 @@ the skills and enforced by the CLI where possible:
   "do not use AI" essays stop the job and leave the tab to the user. The agent never types
   passwords or payment details.
 - **No LinkedIn automation.** LinkedIn's terms forbid it; the plugin does not touch it.
+- **Local dashboard.** Binds to 127.0.0.1 only, answers only requests whose `Host` is
+  `127.0.0.1`, `localhost` or `[::1]` (stops DNS rebinding from other websites), and renders
+  links only for http(s) URLs.
 - **Local data.** Profile, CV, database and logs stay on the user's machine (gitignored, or
   under `JOBRADAR_HOME`). CV text goes only to the LLM provider the user configured.
 

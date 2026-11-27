@@ -133,7 +133,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/WORKFLOWS.md](doc
 | `proto/` | Protobuf contract shared by Go and Python (`buf generate`) |
 | `apps/web/` | Next.js 16 demo site for Cloudflare Workers ([README](apps/web/README.md)) |
 | `deploy/` | Docker Compose stack, Dockerfiles, Cloudflare Tunnel config |
-| `evals/` | Labeled postings + persona, prefilter and LLM screening evals |
+| `evals/` | Labeled postings + persona, prefilter and LLM screening evals, prompt-injection attack corpus and security eval |
 | `docs/` | Architecture, workflows, runbook, security, decision records |
 
 ## Platform quickstart (Docker)
@@ -194,7 +194,8 @@ user's explicit yes before approving a draft.
 ## Tests
 
 ```bash
-uv run pytest                                  # Python: parsers, prefilter, graphs, activities
+uv run pytest                                  # Python: parsers, prefilter, graphs, activities, security eval
+uv run python -m evals.security                # prompt-injection attack success rates (worst-case model)
 (cd orchestrator && go test -race ./...)       # Go: parsers (parity with Python), workflow tests on the Temporal test env
 (cd apps/web && npm run lint && npm run typecheck)
 ```
@@ -208,7 +209,7 @@ the whole git history.
 - [Architecture](docs/ARCHITECTURE.md): components, data model, why each piece exists
 - [Workflows](docs/WORKFLOWS.md): RadarWorkflow, approvals, purge, schedules, limits
 - [Runbook](docs/RUNBOOK.md): run, debug and recover the stack
-- [Evals](docs/EVALS.md): labeled postings, prefilter CI gate, LLM screening eval
+- [Evals](docs/EVALS.md): labeled postings, prefilter CI gate, LLM screening eval, prompt-injection security eval (EN + Arabic)
 - [Security](docs/SECURITY.md): trust boundaries, secrets, data retention
 - [Threat model](docs/THREAT_MODEL.md): the agent's lethal trifecta, attacks A1-A10, OWASP / ATLAS mapping
 - [Decision records](docs/adr/): Temporal, Go + Python split, client-side RRF, Workers + Tunnel

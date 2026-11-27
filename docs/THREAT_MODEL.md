@@ -111,7 +111,9 @@ OWASP Top 10 for LLM Applications 2025 (LLM0x), OWASP Top 10 for Agentic Applica
 
 ## Defences and the attacks they cover
 
-Planned unless marked shipped; a row is marked when its tests and eval numbers land.
+Planned unless marked shipped; a row is marked when its tests and eval numbers land. The
+no-defence baseline (row 0: A1 0.73, A2 0.75, A3 0.40, A4 0.00 attack success with a
+worst-case model) is in [EVALS.md](EVALS.md), Layer 3.
 
 | Layer | Where | Covers |
 |---|---|---|

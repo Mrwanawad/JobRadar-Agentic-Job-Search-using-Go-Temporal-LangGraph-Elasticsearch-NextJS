@@ -4,6 +4,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `docs/THREAT_MODEL.md`: the agent's assets, trust boundaries, attacks A1-A10 and their
+  OWASP LLM 2025 / OWASP Agentic 2026 / MITRE ATLAS mapping.
+- Layer 3 security eval (`evals/security.py`): 510 prompt-injection cases planted in the 52
+  labeled postings (English, Modern Standard Arabic, Egyptian Arabic, Franco-Arabic; 9
+  concealments; 3 placements), each with its own canary, run through the real ingest,
+  screening, recipient and drafting code. A scripted worst-case model makes it deterministic
+  and free for CI; `--llm live` uses the provider chain. Row 0 (no defences) is in
+  `docs/EVALS.md`.
+
+### Fixed
+- Dashboard: requests with a non-local `Host` header get 403 (DNS rebinding could read
+  `/api/snapshot` from any website); job links render only for http(s) URLs.
+- CI: the buf action no longer tries to comment on pull requests with a read-only token.
+
 ## [0.2.0] - 2026-11-20
 
 ### Added
