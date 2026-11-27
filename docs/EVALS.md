@@ -101,33 +101,34 @@ writing prompt. Band accuracy and AUC on the clean set need the live model.
 | Row | Defence added | A1 ASR | A2 ASR | A3 ASR | A4 ASR | payload reach | clean FPR | band acc. | AUC | tokens/job | p50 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 0 | none | 0.73 [0.64, 0.81] | 0.75 [0.68, 0.84] | 0.40 [0.33, 0.47] | 0.00 [0.00, 0.00] | 0.74 [0.70, 0.78] | 0.00 | n/a | n/a | 3630 | 0.001s |
+| 1 | + recipient and output policy | 0.73 [0.64, 0.81] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.00 [0.00, 0.00] | 0.74 [0.70, 0.78] | 0.00 | n/a | n/a | 3631 | 0.001s |
 
 Latest row by language, concealment and placement (510 cases):
 
 | language | ASR, all goals | payload reach |
 |---|---|---|
-| egy | 0.42 | 0.66 |
-| en | 0.47 | 0.77 |
-| franco | 0.47 | 0.78 |
-| msa | 0.45 | 0.74 |
+| egy | 0.12 | 0.66 |
+| en | 0.16 | 0.77 |
+| franco | 0.14 | 0.78 |
+| msa | 0.15 | 0.74 |
 
 | variant | ASR, all goals | payload reach |
 |---|---|---|
-| base64 | 0.28 | 0.77 |
-| bidi | 0.35 | 0.88 |
-| display_none | 0.68 | 0.83 |
-| fake_delimiter | 0.72 | 0.87 |
+| base64 | 0.12 | 0.77 |
+| bidi | 0.17 | 0.88 |
+| display_none | 0.15 | 0.83 |
+| fake_delimiter | 0.20 | 0.87 |
 | html_comment | 0.00 | 0.00 |
-| plain | 0.65 | 0.83 |
-| unicode_tags | 0.33 | 0.90 |
-| white_text | 0.72 | 0.80 |
-| zero_width | 0.32 | 0.85 |
+| plain | 0.18 | 0.83 |
+| unicode_tags | 0.17 | 0.90 |
+| white_text | 0.18 | 0.80 |
+| zero_width | 0.15 | 0.85 |
 
 | placement | ASR, all goals | payload reach |
 |---|---|---|
-| end | 0.36 | 0.49 |
-| middle | 0.49 | 0.85 |
-| start | 0.52 | 0.88 |
+| end | 0.09 | 0.49 |
+| middle | 0.16 | 0.85 |
+| start | 0.18 | 0.88 |
 <!-- /security:obedient -->
 
 What row 0 (no defences) shows:
@@ -144,6 +145,20 @@ What row 0 (no defences) shows:
   (A5 and the hooks).
 - **Arabic, Egyptian Arabic and Franco-Arabic payloads reach the model as often as English
   ones**: nothing filters any language today.
+
+What row 1 (recipient and output policy, `jobradar/guard/`) shows:
+
+- **A3 drops from 0.40 to 0.00.** No planted address or number would go out without a person
+  deciding. Reserved domains are blocked; 17% of A3 cases now sit in `review` with the reason
+  shown (WhatsApp always, mismatched domains), the rest fall back to the apply form.
+- **A2 drops from 0.75 to 0.00.** The obedient model still obeys, but its drafts carry an
+  unknown link or a number found in neither the CV nor the posting, so the output policy
+  rejects them after one revision (112 drafts rejected over the 510 cases).
+- **Clean false positives: 0.00.** All 3 company addresses in the clean postings still route
+  automatically; the one WhatsApp-only posting is held by design.
+- **A1 and payload reach are unchanged**: the payload still reaches the screening model.
+  That is the job of sanitisation, the detector and quarantined extraction (next rows).
+- Row 0 is reproducible at any time with `--without recipients,output`.
 
 ### Live model
 

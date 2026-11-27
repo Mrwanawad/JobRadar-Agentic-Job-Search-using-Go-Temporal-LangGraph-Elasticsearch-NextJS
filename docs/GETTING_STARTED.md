@@ -75,7 +75,9 @@ The agent stops and hands the tab to you on CAPTCHAs, logins, account creation a
 
 Some postings list a recruiter email instead of a form. Those become email drafts.
 
-1. Review them: `uv run jobradar outbox --full`.
+1. Review them: `uv run jobradar outbox --full`. Items the guard held show `review` and the
+   reason (WhatsApp always, since it sends your CV; addresses not on the company's domain;
+   scam phrases). Approve one with `uv run jobradar approve <id>`; nothing else approves them.
 2. In `profile.yaml`: set `candidate.cv_link` (a public link to your CV), and move
    `outreach.dry_run_until` to a past date when you are happy with the drafts.
 3. `/jobradar:send-outreach` sends at most `outreach.daily_cap` a day, one per recipient.

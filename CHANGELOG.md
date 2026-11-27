@@ -13,6 +13,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   screening, recipient and drafting code. A scripted worst-case model makes it deterministic
   and free for CI; `--llm live` uses the provider chain. Row 0 (no defences) is in
   `docs/EVALS.md`.
+- Recipient policy (`jobradar/guard/recipients.py`): email goes out automatically only to the
+  company's own domain; free-mail, mismatched domains, scam phrases and every WhatsApp
+  message (it carries the CV PDF) are held as `review`; reserved domains are blocked.
+  Checked when drafting and again in `sendable()`. New `jobradar approve <id>`; outbox
+  statuses `review` and `approved`. A3 attack success 0.40 -> 0.00.
+- Output policy (`jobradar/guard/output.py`) on every draft, lite and platform: only the
+  candidate's own links and contacts, no private form answers, numbers must come from the CV
+  or posting, no copied posting text, plain text, sane length; one revision, then rejected.
+  A2 attack success 0.75 -> 0.00, no false positives on clean postings.
+
+### Changed
+- WhatsApp drafts (and email drafts to a flagged address) are no longer sendable until you
+  approve each one with `jobradar approve <id>`.
 
 ### Fixed
 - Dashboard: requests with a non-local `Host` header get 403 (DNS rebinding could read

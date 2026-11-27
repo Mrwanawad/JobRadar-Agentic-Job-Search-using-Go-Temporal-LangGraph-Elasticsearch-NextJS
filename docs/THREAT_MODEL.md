@@ -120,9 +120,9 @@ worst-case model) is in [EVALS.md](EVALS.md), Layer 3.
 | Sanitisation: invisible characters, hidden HTML, normalisation | `jobradar/guard/sanitize.py` at ingest | A1, A2, A5 |
 | Injection detector: multilingual rules, optional Prompt Guard 2 | `jobradar/guard/detect.py` | A1, A2, A5 |
 | Quarantined extraction: a tool-less model turns the posting into capped `JobFacts`; screener and writer never see raw text | ADR 0005 | A1, A2, A4 |
-| Output policy on drafts: URLs, contacts, numbers, `answers`, echoed text | `jobradar/guard/output.py` | A2, A4 |
-| Recipient policy: visible text only, domain matches company, free-mail to review, WhatsApp + CV needs per-item approval, scam signals | `jobradar/guard/recipients.py`, `channel_for`, `sendable` | A3, A7 |
-| Gateway-side approval checks | `approve_draft` path | A6 |
+| Output policy on drafts: URLs, contacts, numbers, `answers`, echoed text (**shipped**, `tests/test_guard.py`) | `jobradar/guard/output.py`, `outreach.draft_one`, writer graph | A2, A4 |
+| Recipient policy: domain matches company, free-mail to review, WhatsApp + CV needs per-item approval, scam signals (**shipped**); visible text only (needs sanitisation's hidden-text findings) | `jobradar/guard/recipients.py`, `outreach.route`, `sendable` | A3, A7 |
+| Gateway-side approval checks: held drafts stored as `review`, which the gateway only approves from `draft` (**shipped**); approver identity not recorded yet | `agent/activities.py`, `store.DecideDraft` | A6 |
 | PreToolUse hooks for the applier: upload, navigate, JavaScript, typing | `plugin/hooks`, `jobradar guard hook` | A5 |
 | Dashboard: http(s)-only links, `Host` allow-list (**shipped**, `tests/test_dashboard.py`) | `dashboard.html`, `dashboard.py` | A8, A10 |
 
