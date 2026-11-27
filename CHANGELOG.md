@@ -23,6 +23,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   or posting, no copied posting text, plain text, sane length; one revision, then rejected.
   A2 attack success 0.75 -> 0.00, no false positives on clean postings.
 
+- Applier guard hook (`plugin/hooks/hooks.json`, `jobradar/guard/hook.py`): a PreToolUse
+  hook on Claude in Chrome that allows only the CV as an upload, blocks `file:`/`javascript:`
+  and local or private URLs, asks before unknown sites, blocks page JavaScript with network,
+  cookie, storage or navigation access, and blocks secrets typed into forms (private answers
+  ask first). Fails closed; decisions logged to `data/guard_audit.jsonl`
+  (`jobradar guard audit`). Red-team careers pages in `evals/attacks/pages/`.
+
 ### Changed
 - WhatsApp drafts (and email drafts to a flagged address) are no longer sendable until you
   approve each one with `jobradar approve <id>`.

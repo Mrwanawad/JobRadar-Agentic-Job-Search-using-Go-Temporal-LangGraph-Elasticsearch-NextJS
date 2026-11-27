@@ -69,7 +69,10 @@ folder, and run:
 | `/jobradar:track` | Records replies and interviews; "where do my applications stand?" |
 
 The agent stops and hands the tab to you on CAPTCHAs, logins, account creation and
-"do not use AI" essays. It never types passwords.
+"do not use AI" essays. It never types passwords. The plugin's guard hook checks every
+upload, page, script and typed value before Chrome acts: a blocked call stops that job with
+the reason, an unusual site or a private answer (salary, ID) asks you first.
+`uv run jobradar guard audit` lists what it blocked.
 
 ## 5. Sending emails (optional)
 

@@ -54,7 +54,9 @@ Then in Claude Code, from the repo folder:
 
 The plugin fills careers-page forms (Workable, Greenhouse, Lever, Ashby, SmartRecruiters...)
 in Chrome with your profile and CV, never applies twice, stops on CAPTCHAs and logins, and
-submits only on your yes. Full guide: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
+submits only on your yes. A guard hook outside the model blocks uploads other than your CV,
+local or `file:` URLs, network and cookie access from page JavaScript, and secrets typed into
+forms ([threat model](docs/THREAT_MODEL.md)). Full guide: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
 
 ### Every stage, in motion
 
@@ -128,7 +130,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/WORKFLOWS.md](doc
 | `orchestrator/` | Go: Temporal workflows, ingestion worker, HTTP gateway, migrations, schedules |
 | `jobradar/agent/` | Python agent worker: LangGraph graphs, Elasticsearch search, Temporal activities |
 | `jobradar/` | Lite mode CLI (init, fetch, score, draft, send, track) on SQLite |
-| `plugin/` | Claude Code plugin: `apply`, `send-outreach`, `track` skills |
+| `plugin/` | Claude Code plugin: `apply`, `send-outreach`, `track` skills, guard hook (`hooks/hooks.json`) |
 | `jobradar/mcp_server.py` | MCP server: run, search and approve from Claude or any MCP client |
 | `proto/` | Protobuf contract shared by Go and Python (`buf generate`) |
 | `apps/web/` | Next.js 16 demo site for Cloudflare Workers ([README](apps/web/README.md)) |

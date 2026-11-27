@@ -57,8 +57,18 @@ dry-run date, daily caps and per-recipient deduplication.
 Attacks on the agent itself (prompt injection in postings and careers pages, recipient
 hijack, tool misuse) are covered in [THREAT_MODEL.md](THREAT_MODEL.md).
 
-The Claude Code plugin acts in the user's own browser session, so its limits are written into
-the skills and enforced by the CLI where possible:
+The Claude Code plugin acts in the user's own browser session. Its limits are enforced by the
+CLI and by a PreToolUse hook outside the model; the skills state the rest:
+
+- **Applier guard hook (enforced, `plugin/hooks/hooks.json` -> `jobradar/guard/hook.py`).**
+  Runs before every Claude in Chrome `navigate`, `file_upload`, `javascript_tool`,
+  `form_input`, `computer` and `browser_batch` call. Uploads: only the CV (and
+  `out/cover_letters/`). Navigation: http(s) only, never local or private addresses; job
+  boards, ATS hosts and companies in the job list pass, anything else asks the user.
+  JavaScript: no network calls, cookies, storage, form-action rewrites, navigation or `eval`.
+  Typing: never a `.env` secret or key-shaped string; private answers (salary, ID, birth date,
+  address) ask first. It never auto-approves, a crash blocks the call, and every decision is
+  logged to `data/guard_audit.jsonl` with typed values redacted (`jobradar guard audit`).
 
 - **No fabrication.** Form answers come from `profile.yaml` (`candidate`, `answers`) and the
   CV text only. Knockout questions get the truthful answer. Unknown required answers are asked.
