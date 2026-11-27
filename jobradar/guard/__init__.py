@@ -12,8 +12,9 @@ what each layer adds.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from typing import Any
 
 LAYERS = ("recipients", "output")
 _off: set[str] = set()
@@ -35,3 +36,18 @@ def disabled(*layers: str) -> Iterator[None]:
     finally:
         _off.clear()
         _off.update(before)
+
+
+def flatten(answers: Mapping[str, Any], prefix: str = "") -> dict[str, str]:
+    """`{"salary": {"egypt": {"current": "X"}}}` -> `{"salary.egypt.current": "X"}`.
+    Standing answers are often nested, and every value must be checked, not the dict."""
+    out: dict[str, str] = {}
+    for k, v in answers.items():
+        key = f"{prefix}{k}"
+        if isinstance(v, Mapping):
+            out |= flatten(v, key + ".")
+        elif isinstance(v, list):
+            out |= {f"{key}.{i}": str(x) for i, x in enumerate(v)}
+        elif v is not None:
+            out[key] = str(v)
+    return out

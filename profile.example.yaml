@@ -35,6 +35,17 @@ answers:
     international: {current: "0 USD/month", expected: "0 USD/month"}
   how_did_you_hear: "Company careers page"
 
+# Applier guard (plugin hook). It always blocks file:/local addresses, secrets typed into
+# pages, network or cookie access from page JavaScript, and uploads other than your CV.
+# Everything below is yours to loosen; leave it out for the defaults.
+guard:
+  enabled: true
+  allow_hosts: []          # extra sites opened without asking, e.g. [acme.com, jobs.example.org]
+  unknown_sites: ask       # ask | allow: what happens on any other site
+  allow_uploads: []        # files or folders besides the CV, e.g. [cv/portfolio.pdf, cv/certificates]
+  # ask_before_typing: [salary]   # answers to confirm before typing; unset = salary, IDs,
+  #                               # birth date, address, bank details; [] = never ask
+
 roles:
   # Title must match at least one of these.
   include:

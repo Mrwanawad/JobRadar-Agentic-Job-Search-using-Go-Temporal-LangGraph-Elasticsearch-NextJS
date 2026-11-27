@@ -271,3 +271,68 @@ def test_obedient_applier_on_red_team_pages(ctx, page):
     for tool, tool_input, expect in OBEYED[page]:
         tool_input = json.loads(json.dumps(tool_input).replace("{root}", ctx.root.as_posix()))
         assert decide(ctx, tool, **tool_input).decision == expect, (page, tool)
+
+
+# ---- user settings (profile.yaml `guard:`) -------------------------------------------------
+
+
+def settings(ctx, **kw):
+    from jobradar.config import GuardSettings
+
+    ctx.settings = GuardSettings(**kw)
+    ctx.__dict__.pop("uploads", None)  # cached
+    return ctx
+
+
+def test_allow_hosts_and_unknown_sites(ctx):
+    url = "https://careers.partner.example.org/apply"
+    assert decide(ctx, "navigate", url=url, tabId=1).decision == "ask"
+    settings(ctx, allow_hosts=["partner.example.org"])
+    assert decide(ctx, "navigate", url=url, tabId=1).decision == "allow"
+    assert decide(ctx, "navigate", url="https://evilpartner.example.org", tabId=1).decision == "ask"
+    settings(ctx, unknown_sites="allow")
+    assert decide(ctx, "navigate", url="https://anything.example", tabId=1).decision == "allow"
+    # hard rules stay whatever the settings say
+    settings(ctx, unknown_sites="allow", allow_hosts=["localhost", "127.0.0.1"])
+    assert decide(ctx, "navigate", url="http://127.0.0.1:8765", tabId=1).decision == "deny"
+    assert decide(ctx, "navigate", url="file:///etc/passwd", tabId=1).decision == "deny"
+
+
+def test_allow_uploads(ctx, tmp_path):
+    extra = tmp_path / "cv" / "portfolio.pdf"
+    extra.write_bytes(b"%PDF")
+    assert decide(ctx, "file_upload", paths=[str(extra)], ref="r", tabId=1).decision == "deny"
+    settings(ctx, allow_uploads=["cv/portfolio.pdf"])
+    assert decide(ctx, "file_upload", paths=[str(extra)], ref="r", tabId=1).decision == "allow"
+    assert decide(ctx, "file_upload", paths=[str(ctx.cv)], ref="r", tabId=1).decision == "allow"
+    env = str(tmp_path / ".env")
+    assert decide(ctx, "file_upload", paths=[env], ref="r", tabId=1).decision == "deny"
+
+
+def test_nested_answers_and_ask_before_typing(ctx):
+    ctx.answers = {"salary": {"egypt": {"expected": "60,000 EGP/month net"}}, "notice": "2 weeks"}
+    v = decide(ctx, "form_input", ref="r", value="60,000 EGP/month net", tabId=1)
+    assert v.decision == "ask" and "salary.egypt.expected" in v.reasons[0]
+    settings(ctx, ask_before_typing=[])
+    assert decide(ctx, "form_input", ref="r", value="60,000 EGP/month net", tabId=1).decision == (
+        "allow"
+    )
+    settings(ctx, ask_before_typing=["notice"])
+    assert decide(ctx, "form_input", ref="r", value="2 weeks", tabId=1).decision == "ask"
+    # secrets are never typed, whatever the settings say
+    v = decide(ctx, "form_input", ref="r", value="AIzaFAKEFAKEFAKEFAKEFAKE123", tabId=1)
+    assert v.decision == "deny"
+
+
+def test_guard_can_be_switched_off(ctx):
+    settings(ctx, enabled=False)
+    assert decide(ctx, "navigate", url="file:///etc/passwd", tabId=1).decision == "allow"
+
+
+def test_profile_example_guard_section_is_valid():
+    import yaml
+
+    from jobradar.config import Profile
+
+    raw = yaml.safe_load((Path(__file__).parents[1] / "profile.example.yaml").read_text("utf-8"))
+    assert Profile.model_validate(raw).guard.unknown_sites == "ask"

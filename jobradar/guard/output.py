@@ -23,7 +23,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from jobradar.config import Profile
-from jobradar.guard import enabled
+from jobradar.guard import enabled, flatten
 from jobradar.guard.recipients import field_of
 
 _URL = re.compile(r"https?://[^\s<>\"')\]]+|www\.[^\s<>\"')\]]+", re.I)
@@ -85,8 +85,8 @@ def check(text: str, channel: str, profile: Profile, cv: str, row: Mapping[str, 
         if not c.phone or _digits(p) != _digits(c.phone):
             out.append(f"phone number {p.strip()} is not the candidate's")
 
-    for key, value in profile.answers.items():
-        v = str(value).strip()
+    for key, value in flatten(profile.answers).items():
+        v = value.strip()
         if len(v) >= 6 and v.lower() in text.lower():
             out.append(f"private answer {key!r} must not be in the message")
 

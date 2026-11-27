@@ -34,6 +34,8 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
+from jobradar.config import GuardSettings
+from jobradar.guard import flatten
 from jobradar.guard.recipients import company_keys, registrable
 
 Decision = Literal["allow", "ask", "deny"]
@@ -90,6 +92,7 @@ class Context:
     root: Path
     cv: Path | None = None
     answers: dict[str, Any] = field(default_factory=dict)
+    settings: GuardSettings = field(default_factory=GuardSettings)
 
     @classmethod
     def load(cls) -> Context:
@@ -97,9 +100,23 @@ class Context:
 
         try:
             p = load_profile()
-            return cls(ROOT, (ROOT / p.candidate.cv).resolve(), dict(p.answers))
-        except Exception:  # noqa: BLE001 - no profile yet: only the CV rule gets stricter
+            return cls(ROOT, (ROOT / p.candidate.cv).resolve(), dict(p.answers), p.guard)
+        except Exception:  # noqa: BLE001 - no profile yet: defaults, no CV to upload
             return cls(ROOT)
+
+    @cached_property
+    def uploads(self) -> list[Path]:
+        """The CV, the CLI's cover letters and the user's `guard.allow_uploads`."""
+        extra = [Path(p).expanduser() for p in self.settings.allow_uploads]
+        paths = [self.root / "out" / "cover_letters"]
+        paths += [p if p.is_absolute() else self.root / p for p in extra]
+        return [p.resolve() for p in ([self.cv] if self.cv else []) + paths]
+
+    def private_answer(self, key: str) -> bool:
+        keys = self.settings.ask_before_typing
+        if keys is None:
+            return bool(_SENSITIVE_ANSWER.search(key))
+        return any(key == k or key.startswith(k + ".") for k in keys)
 
     @cached_property
     def secrets(self) -> list[str]:
@@ -162,20 +179,30 @@ def check_navigate(url: str, ctx: Context, v: Verdict) -> None:
     if not host or private_host(host):
         v.add("deny", f"local or private address {host or url!r}")
         return
-    if host.endswith(ATS_HOSTS) or registrable(host) in ctx.job_hosts:
+    user_hosts = tuple(h.lower().lstrip(".") for h in ctx.settings.allow_hosts if h)
+    if (
+        host.endswith(ATS_HOSTS)
+        or any(host == h or host.endswith("." + h) for h in user_hosts)
+        or registrable(host) in ctx.job_hosts
+    ):
         return
-    v.add("ask", f"{host} is not a job board, ATS or a company in your job list")
+    if ctx.settings.unknown_sites == "ask":
+        v.add(
+            "ask",
+            f"{host} is not a job board, ATS or a company in your job list"
+            " (add it to guard.allow_hosts in profile.yaml to stop this prompt)",
+        )
 
 
 def check_upload(paths: Iterable[str], ctx: Context, v: Verdict) -> None:
-    allowed_dir = (ctx.root / "out" / "cover_letters").resolve()
     for p in paths:
         path = Path(p).expanduser().resolve()
-        if ctx.cv and path == ctx.cv:
+        if any(path == a or path.is_relative_to(a) for a in ctx.uploads):
             continue
-        if path.is_relative_to(allowed_dir):
-            continue
-        v.add("deny", f"only your CV can be uploaded, not {path.name}")
+        v.add(
+            "deny",
+            f"{path.name} is not your CV or in guard.allow_uploads (profile.yaml)",
+        )
 
 
 def check_js(code: str, v: Verdict) -> None:
@@ -190,14 +217,20 @@ def check_typing(text: Any, ctx: Context, v: Verdict) -> None:
     if any(s in text for s in ctx.secrets) or _KEY_SHAPED.search(text):
         v.add("deny", "that looks like a secret or API key; it is never typed into a page")
         return
-    for key, value in ctx.answers.items():
-        val = str(value).strip()
-        if _SENSITIVE_ANSWER.search(key) and len(val) >= 4 and val in text:
-            v.add("ask", f"typing your private answer {key!r} into this page")
+    for key, value in flatten(ctx.answers).items():
+        val = value.strip()
+        if ctx.private_answer(key) and len(val) >= 4 and val in text:
+            v.add(
+                "ask",
+                f"typing your private answer {key!r} into this page"
+                " (guard.ask_before_typing in profile.yaml controls this)",
+            )
 
 
 def decide(tool_name: str, tool_input: dict[str, Any], ctx: Context) -> Verdict:
     v = Verdict()
+    if not ctx.settings.enabled:
+        return v
     tool = tool_name.rsplit("__", 1)[-1]
     if tool == "browser_batch":
         for item in tool_input.get("actions") or []:

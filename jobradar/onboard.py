@@ -190,4 +190,23 @@ def checks(root: Path = ROOT, ping: bool = False) -> list[tuple[str, str, str]]:
     blanks = [k for k, v in prof.answers.items() if v in ("", None)]
     if blanks:
         add("warn", "answers", "blank (the plugin will ask you): " + ", ".join(blanks))
+
+    g = prof.guard
+    if not g.enabled:
+        add("warn", "guard", "off (guard.enabled: false): the applier runs without limits")
+    else:
+        ask = (
+            "all private answers"
+            if g.ask_before_typing is None
+            else (", ".join(g.ask_before_typing) or "nothing")
+        )
+        add(
+            "ok",
+            "guard",
+            f"on; unknown sites: {g.unknown_sites}; {len(g.allow_hosts)} extra sites, "
+            f"{len(g.allow_uploads)} extra uploads; confirms before typing: {ask}",
+        )
+        installed = Path.home() / ".claude" / "plugins" / "installed_plugins.json"
+        if not (installed.exists() and '"jobradar@' in installed.read_text(encoding="utf-8")):
+            add("warn", "guard hook", "plugin not installed in Claude Code: limits not enforced")
     return out

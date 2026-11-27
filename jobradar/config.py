@@ -6,7 +6,7 @@ import os
 import re
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -72,6 +72,26 @@ class Outreach(BaseModel):
         return self.dry_run_until is not None and (today or date.today()) <= self.dry_run_until
 
 
+class GuardSettings(BaseModel):
+    """What each user may loosen in the applier guard (jobradar/guard/hook.py). The hard
+    rules are fixed: no file:, javascript: or local addresses, no secrets typed into pages,
+    no network or cookie access from page JavaScript, no uploads outside the allow list."""
+
+    enabled: bool = True
+    # Extra sites the applier may open without asking (suffix match: "acme.com" covers
+    # "careers.acme.com"). Job boards, ATS hosts and companies in your job list pass already.
+    allow_hosts: list[str] = Field(default_factory=list)
+    # Any other site: "ask" (a prompt with the reason) or "allow".
+    unknown_sites: Literal["ask", "allow"] = "ask"
+    # Files or folders besides the CV that may be uploaded (portfolio PDF, certificates...).
+    # Relative paths are inside the JobRadar home.
+    allow_uploads: list[str] = Field(default_factory=list)
+    # `answers` keys to confirm before typing (a key covers its sub-keys: "salary" covers
+    # "salary.egypt.current"). Unset = salary, ID and passport numbers, birth date, address,
+    # bank details. [] = never ask.
+    ask_before_typing: list[str] | None = None
+
+
 class Profile(BaseModel):
     candidate: Candidate
     roles: Roles
@@ -82,6 +102,7 @@ class Profile(BaseModel):
     # Standing answers for application forms (salary, notice period, relocation, work
     # authorisation...). Read by the Claude Code plugin when it fills forms, not by the pipeline.
     answers: dict[str, Any] = Field(default_factory=dict)
+    guard: GuardSettings = GuardSettings()
 
     def rx(self, pattern: str) -> re.Pattern[str]:
         return re.compile(pattern, re.I)

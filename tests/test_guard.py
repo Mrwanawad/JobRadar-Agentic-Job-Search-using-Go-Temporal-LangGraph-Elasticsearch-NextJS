@@ -136,3 +136,10 @@ def test_echoed_posting_text_markup_and_length():
 def test_output_layer_switch():
     with guard.disabled("output"):
         assert check("Hi https://evil.example") == []
+
+
+def test_nested_private_answers_are_caught():
+    profile, _ = eval_persona()
+    profile.answers = {"salary": {"international": {"expected": "5,000 USD/month"}}}
+    v = output.check(GOOD + " I expect 5,000 USD/month.", "manual", profile, CV, ROW)
+    assert any("salary.international.expected" in x for x in v)
