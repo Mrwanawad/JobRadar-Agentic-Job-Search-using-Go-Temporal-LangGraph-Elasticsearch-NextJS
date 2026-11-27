@@ -27,3 +27,6 @@ evals/results/
 
 # Demo GIF build output (frames, timelines, synthetic demo home)
 docs/demo/build/
+
+# Generated attack corpus (evals/attacks/build.py writes it for inspection)
+evals/attacks/cases.jsonl
