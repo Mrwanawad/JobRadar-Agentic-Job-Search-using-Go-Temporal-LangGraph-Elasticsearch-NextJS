@@ -69,13 +69,21 @@ folder, and run:
 | `/jobradar:track` | Records replies and interviews; "where do my applications stand?" |
 
 The agent stops and hands the tab to you on CAPTCHAs, logins, account creation and
-"do not use AI" essays. It never types passwords.
+"do not use AI" essays. It never types passwords. The plugin's guard hook checks every
+upload, page, script and typed value before Chrome acts: a blocked call stops that job with
+the reason, an unusual site or a private answer (salary, ID) asks you first.
+`uv run jobradar guard audit` lists what it blocked. To ask less, add a `guard:` section to
+`profile.yaml` (see `profile.example.yaml`): sites you trust, `unknown_sites: allow`, extra
+files to upload, and which answers to confirm before typing (`ask_before_typing: []` never
+asks).
 
 ## 5. Sending emails (optional)
 
 Some postings list a recruiter email instead of a form. Those become email drafts.
 
-1. Review them: `uv run jobradar outbox --full`.
+1. Review them: `uv run jobradar outbox --full`. Items the guard held show `review` and the
+   reason (WhatsApp always, since it sends your CV; addresses not on the company's domain;
+   scam phrases). Approve one with `uv run jobradar approve <id>`; nothing else approves them.
 2. In `profile.yaml`: set `candidate.cv_link` (a public link to your CV), and move
    `outreach.dry_run_until` to a past date when you are happy with the drafts.
 3. `/jobradar:send-outreach` sends at most `outreach.daily_cap` a day, one per recipient.

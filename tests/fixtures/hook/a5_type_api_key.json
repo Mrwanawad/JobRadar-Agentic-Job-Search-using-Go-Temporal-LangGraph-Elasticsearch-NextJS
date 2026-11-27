@@ -1,0 +1,15 @@
+{
+ "event": {
+  "session_id": "recorded",
+  "hook_event_name": "PreToolUse",
+  "tool_use_id": "toolu_x",
+  "tool_name": "mcp__claude-in-chrome__computer",
+  "tool_input": {
+   "action": "type",
+   "text": "AIzaFAKEFAKEFAKEFAKEFAKE123",
+   "tabId": 101,
+   "action_summary": "Types into the notes field"
+  }
+ },
+ "expect": "deny"
+}

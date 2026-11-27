@@ -54,8 +54,26 @@ dry-run date, daily caps and per-recipient deduplication.
 
 ## Applier agent guardrails (lite mode + plugin)
 
-The Claude Code plugin acts in the user's own browser session, so its limits are written into
-the skills and enforced by the CLI where possible:
+Attacks on the agent itself (prompt injection in postings and careers pages, recipient
+hijack, tool misuse) are covered in [THREAT_MODEL.md](THREAT_MODEL.md).
+
+The Claude Code plugin acts in the user's own browser session. Its limits are enforced by the
+CLI and by a PreToolUse hook outside the model; the skills state the rest:
+
+- **Applier guard hook (enforced, `plugin/hooks/hooks.json` -> `jobradar/guard/hook.py`).**
+  Runs before every Claude in Chrome `navigate`, `file_upload`, `javascript_tool`,
+  `form_input`, `computer` and `browser_batch` call. Uploads: only the CV (and
+  `out/cover_letters/`). Navigation: http(s) only, never local or private addresses; job
+  boards, ATS hosts and companies in the job list pass, anything else asks the user.
+  JavaScript: no network calls, cookies, storage, form-action rewrites, navigation or `eval`.
+  Typing: never a `.env` secret or key-shaped string; private answers (salary, ID, birth date,
+  address) ask first. It never auto-approves, a crash blocks the call, and every decision is
+  logged to `data/guard_audit.jsonl` with typed values redacted (`jobradar guard audit`).
+  Users can loosen it in `profile.yaml` under `guard:` (extra trusted sites, `unknown_sites:
+  allow`, extra upload files, which answers to confirm, or `enabled: false`); the hard rules
+  (`file:`/local addresses, secrets, JavaScript network and cookie access, uploads outside
+  the allow list) do not change. `jobradar doctor` shows the settings and warns when the
+  plugin hook is not installed or the guard is off.
 
 - **No fabrication.** Form answers come from `profile.yaml` (`candidate`, `answers`) and the
   CV text only. Knockout questions get the truthful answer. Unknown required answers are asked.
@@ -64,10 +82,41 @@ the skills and enforced by the CLI where possible:
 - **Human approval.** Each submit is confirmed by the user unless they waive it for that
   session. Emails go out only through `jobradar sendable`, which applies the dry-run date,
   the daily cap and per-recipient deduplication.
+- **Recipient policy (enforced, `jobradar/guard/recipients.py`).** An email goes out
+  automatically only when its domain belongs to the company (company name or the posting's
+  own host, never an ATS or job board). Free-mail and mismatched addresses, every WhatsApp
+  message (it carries the CV PDF) and postings with scam phrases are held as `review` until
+  the user runs `jobradar approve <id>`; reserved domains are blocked. `sendable()` checks
+  again at send time. In platform mode held drafts are stored as `review`, which the gateway
+  and MCP `approve_draft` cannot approve.
+- **Input sanitisation (enforced, `jobradar/guard/sanitize.py`).** HTML comments and
+  elements hidden by CSS or attributes are cut out when a posting is parsed (Python and the Go
+  ingest worker alike), so hidden text never reaches a prompt or the contact extractor.
+  Where posting text enters a prompt, invisible, tag and direction-override characters are
+  removed, base64 that decodes to text is replaced, and text is NFKC-normalised. What was
+  hidden is kept as a finding for the detector.
+- **Injection detector and quarantine (enforced, `jobradar/guard/detect.py`).** Rules in
+  English, Modern Standard Arabic, Egyptian Arabic and Franco-Arabic (`rules.yaml`), run on
+  normalised text together with what the sanitiser removed. A flagged posting is quarantined
+  before any model call: never scored, drafted or shown in `jobradar top`
+  (`jobradar guard quarantined`). The applier runs `jobradar guard scan-page` on each careers
+  page before filling it and hands the tab back when it is flagged. Rules are a phrase list:
+  the held-out results in EVALS.md show reworded attacks get past them.
+- **Quarantined extraction (opt-in, `scoring.extraction: true`).** A model with no tools and
+  no CV turns each posting into typed facts; the screening model reads those instead of the
+  posting text, the writer adds only a checked 300-character company summary. See
+  [ADR 0005](adr/0005-quarantined-extraction-for-untrusted-postings.md).
+- **Output policy (enforced, `jobradar/guard/output.py`).** Drafts may contain only the
+  candidate's own links, email and phone, no private form answers, only numbers found in the
+  CV or posting, no long spans copied from the posting, and plain text. A violating draft
+  gets one revision, then is rejected.
 - **Hand-back, never bypass.** CAPTCHAs, logins, account creation, payment or ID requests and
   "do not use AI" essays stop the job and leave the tab to the user. The agent never types
   passwords or payment details.
 - **No LinkedIn automation.** LinkedIn's terms forbid it; the plugin does not touch it.
+- **Local dashboard.** Binds to 127.0.0.1 only, answers only requests whose `Host` is
+  `127.0.0.1`, `localhost` or `[::1]` (stops DNS rebinding from other websites), and renders
+  links only for http(s) URLs.
 - **Local data.** Profile, CV, database and logs stay on the user's machine (gitignored, or
   under `JOBRADAR_HOME`). CV text goes only to the LLM provider the user configured.
 

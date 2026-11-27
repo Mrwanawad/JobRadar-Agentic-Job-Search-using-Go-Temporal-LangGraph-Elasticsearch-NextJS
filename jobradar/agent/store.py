@@ -15,7 +15,7 @@ from jobradar.agent import profiles
 from jobradar.config import Profile
 
 JOB_COLS = """j.uid, j.fingerprint, j.source, j.company, j.title, j.location, j.remote, j.url,
-    j.apply_url, j.description, j.posted_at, j.salary, j.tags, j.emails, j.phones"""
+    j.apply_url, j.description, j.posted_at, j.salary, j.tags, j.emails, j.phones, j.facts"""
 
 
 @dataclass
@@ -128,6 +128,10 @@ class AgentStore:
             raise LookupError(f"job {uid} not found")
         return row
 
+    def save_facts(self, uid: str, facts: dict[str, Any]) -> None:
+        with self.pool.connection() as c:
+            c.execute("UPDATE jobs SET facts = %s WHERE uid = %s", (Jsonb(facts), uid))
+
     def job_with_assessment(self, profile_id: str, uid: str) -> dict[str, Any]:
         with self.pool.connection() as c:
             row = c.execute(
@@ -163,18 +167,30 @@ class AgentStore:
         body: str,
         critique: dict[str, Any],
         revisions: int,
+        status: str = "draft",
     ) -> int:
         with self.pool.connection() as c:
             row = c.execute(
                 """INSERT INTO outbox (profile_id, job_uid, channel, recipient, subject, body,
-                                       critique, revisions)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                       critique, revisions, status)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT (profile_id, job_uid) DO UPDATE SET
                        body = EXCLUDED.body, subject = EXCLUDED.subject,
-                       critique = EXCLUDED.critique, revisions = EXCLUDED.revisions
-                   WHERE outbox.status = 'draft'
+                       critique = EXCLUDED.critique, revisions = EXCLUDED.revisions,
+                       status = EXCLUDED.status
+                   WHERE outbox.status IN ('draft', 'review')
                    RETURNING id""",
-                (profile_id, uid, channel, recipient, subject, body, Jsonb(critique), revisions),
+                (
+                    profile_id,
+                    uid,
+                    channel,
+                    recipient,
+                    subject,
+                    body,
+                    Jsonb(critique),
+                    revisions,
+                    status,
+                ),
             ).fetchone()
             if row is None:  # already decided by the human: leave it alone
                 row = c.execute(

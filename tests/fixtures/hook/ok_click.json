@@ -1,0 +1,18 @@
+{
+ "event": {
+  "session_id": "recorded",
+  "hook_event_name": "PreToolUse",
+  "tool_use_id": "toolu_x",
+  "tool_name": "mcp__claude-in-chrome__computer",
+  "tool_input": {
+   "action": "left_click",
+   "coordinate": [
+    640,
+    410
+   ],
+   "tabId": 101,
+   "action_summary": "Clicks Submit application"
+  }
+ },
+ "expect": "allow"
+}

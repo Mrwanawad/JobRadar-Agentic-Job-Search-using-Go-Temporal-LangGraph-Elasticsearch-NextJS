@@ -54,7 +54,9 @@ Then in Claude Code, from the repo folder:
 
 The plugin fills careers-page forms (Workable, Greenhouse, Lever, Ashby, SmartRecruiters...)
 in Chrome with your profile and CV, never applies twice, stops on CAPTCHAs and logins, and
-submits only on your yes. Full guide: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
+submits only on your yes. A guard hook outside the model blocks uploads other than your CV,
+local or `file:` URLs, network and cookie access from page JavaScript, and secrets typed into
+forms ([threat model](docs/THREAT_MODEL.md)). Full guide: [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
 
 ### Every stage, in motion
 
@@ -128,12 +130,12 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/WORKFLOWS.md](doc
 | `orchestrator/` | Go: Temporal workflows, ingestion worker, HTTP gateway, migrations, schedules |
 | `jobradar/agent/` | Python agent worker: LangGraph graphs, Elasticsearch search, Temporal activities |
 | `jobradar/` | Lite mode CLI (init, fetch, score, draft, send, track) on SQLite |
-| `plugin/` | Claude Code plugin: `apply`, `send-outreach`, `track` skills |
+| `plugin/` | Claude Code plugin: `apply`, `send-outreach`, `track` skills, guard hook (`hooks/hooks.json`) |
 | `jobradar/mcp_server.py` | MCP server: run, search and approve from Claude or any MCP client |
 | `proto/` | Protobuf contract shared by Go and Python (`buf generate`) |
 | `apps/web/` | Next.js 16 demo site for Cloudflare Workers ([README](apps/web/README.md)) |
 | `deploy/` | Docker Compose stack, Dockerfiles, Cloudflare Tunnel config |
-| `evals/` | Labeled postings + persona, prefilter and LLM screening evals |
+| `evals/` | Labeled postings + persona, prefilter and LLM screening evals, prompt-injection attack corpus and security eval |
 | `docs/` | Architecture, workflows, runbook, security, decision records |
 
 ## Platform quickstart (Docker)
@@ -194,7 +196,8 @@ user's explicit yes before approving a draft.
 ## Tests
 
 ```bash
-uv run pytest                                  # Python: parsers, prefilter, graphs, activities
+uv run pytest                                  # Python: parsers, prefilter, graphs, activities, security eval
+uv run python -m evals.security                # prompt-injection attack success rates (worst-case model)
 (cd orchestrator && go test -race ./...)       # Go: parsers (parity with Python), workflow tests on the Temporal test env
 (cd apps/web && npm run lint && npm run typecheck)
 ```
@@ -208,9 +211,10 @@ the whole git history.
 - [Architecture](docs/ARCHITECTURE.md): components, data model, why each piece exists
 - [Workflows](docs/WORKFLOWS.md): RadarWorkflow, approvals, purge, schedules, limits
 - [Runbook](docs/RUNBOOK.md): run, debug and recover the stack
-- [Evals](docs/EVALS.md): labeled postings, prefilter CI gate, LLM screening eval
+- [Evals](docs/EVALS.md): labeled postings, prefilter CI gate, LLM screening eval, prompt-injection security eval (EN + Arabic)
 - [Security](docs/SECURITY.md): trust boundaries, secrets, data retention
-- [Decision records](docs/adr/): Temporal, Go + Python split, client-side RRF, Workers + Tunnel
+- [Threat model](docs/THREAT_MODEL.md): the agent's lethal trifecta, attacks A1-A10, OWASP / ATLAS mapping
+- [Decision records](docs/adr/): Temporal, Go + Python split, client-side RRF, Workers + Tunnel, quarantined extraction
 - [Sources](docs/ENDPOINTS.md): verified job-board endpoints and LLM free-tier limits
 - [Changelog](CHANGELOG.md)
 

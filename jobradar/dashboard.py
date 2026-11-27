@@ -202,9 +202,23 @@ def snapshot(db_path: Path = DEFAULT_PATH) -> dict[str, Any]:
         conn.close()
 
 
+LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]"}
+
+
+def host_allowed(host: str | None) -> bool:
+    """DNS rebinding guard: a page on attacker.example can resolve its own name to 127.0.0.1
+    and read this server, but the browser still sends `Host: attacker.example`."""
+    if not host:
+        return False
+    name = host.rsplit(":", 1)[0] if not host.endswith("]") else host
+    return name.lower() in LOCAL_HOSTS
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
-        if self.path in ("/", "/index.html"):
+        if not host_allowed(self.headers.get("Host")):
+            self._send(403, "text/plain", b"forbidden host")
+        elif self.path in ("/", "/index.html"):
             self._send(200, "text/html; charset=utf-8", PAGE.read_bytes())
         elif self.path == "/api/snapshot":
             body = json.dumps(snapshot(), ensure_ascii=False, default=str).encode()

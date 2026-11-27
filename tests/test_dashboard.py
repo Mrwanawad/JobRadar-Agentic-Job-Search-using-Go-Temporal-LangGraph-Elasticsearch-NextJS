@@ -23,3 +23,36 @@ def test_upsert_process_updates_only_given_fields():
     assert db.upsert_process("Acme", "AI Eng", stage="Tech done", notes=None) == pid
     row = db.conn.execute("SELECT stage, found_by FROM processes WHERE id=?", (pid,)).fetchone()
     assert tuple(row) == ("Tech done", "you")
+
+
+def test_host_allowed_blocks_dns_rebinding():
+    from jobradar.dashboard import host_allowed
+
+    for ok in ("127.0.0.1:8765", "localhost:8765", "LOCALHOST", "[::1]:8765", "[::1]"):
+        assert host_allowed(ok), ok
+    for bad in (None, "", "attacker.example", "attacker.example:8765", "127.0.0.1.nip.io:8765"):
+        assert not host_allowed(bad), bad
+
+
+def test_server_rejects_foreign_host_header():
+    import threading
+
+    import httpx
+
+    from jobradar.dashboard import serve
+
+    srv = serve(0)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        base = f"http://127.0.0.1:{srv.server_address[1]}"
+        assert httpx.get(base + "/").status_code == 200
+        r = httpx.get(base + "/api/snapshot", headers={"Host": "attacker.example"})
+        assert r.status_code == 403
+    finally:
+        srv.shutdown()
+
+
+def test_link_only_renders_http_urls():
+    from jobradar.dashboard import PAGE
+
+    assert r'/^https?:\/\//i.test(url ?? "")' in PAGE.read_text(encoding="utf-8")

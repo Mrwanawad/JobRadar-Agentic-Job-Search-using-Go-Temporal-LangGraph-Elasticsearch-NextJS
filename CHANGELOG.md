@@ -4,6 +4,71 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `docs/THREAT_MODEL.md`: the agent's assets, trust boundaries, attacks A1-A10 and their
+  OWASP LLM 2025 / OWASP Agentic 2026 / MITRE ATLAS mapping.
+- Layer 3 security eval (`evals/security.py`): 510 prompt-injection cases planted in the 52
+  labeled postings (English, Modern Standard Arabic, Egyptian Arabic, Franco-Arabic; 9
+  concealments; 3 placements), each with its own canary, run through the real ingest,
+  screening, recipient and drafting code. A scripted worst-case model makes it deterministic
+  and free for CI; `--llm live` uses the provider chain. Row 0 (no defences) is in
+  `docs/EVALS.md`.
+- Recipient policy (`jobradar/guard/recipients.py`): email goes out automatically only to the
+  company's own domain; free-mail, mismatched domains, scam phrases and every WhatsApp
+  message (it carries the CV PDF) are held as `review`; reserved domains are blocked.
+  Checked when drafting and again in `sendable()`. New `jobradar approve <id>`; outbox
+  statuses `review` and `approved`. A3 attack success 0.40 -> 0.00.
+- Output policy (`jobradar/guard/output.py`) on every draft, lite and platform: only the
+  candidate's own links and contacts, no private form answers, numbers must come from the CV
+  or posting, no copied posting text, plain text, sane length; one revision, then rejected.
+  A2 attack success 0.75 -> 0.00, no false positives on clean postings.
+
+- Applier guard hook (`plugin/hooks/hooks.json`, `jobradar/guard/hook.py`): a PreToolUse
+  hook on Claude in Chrome that allows only the CV as an upload, blocks `file:`/`javascript:`
+  and local or private URLs, asks before unknown sites, blocks page JavaScript with network,
+  cookie, storage or navigation access, and blocks secrets typed into forms (private answers
+  ask first). Fails closed; decisions logged to `data/guard_audit.jsonl`
+  (`jobradar guard audit`). Red-team careers pages in `evals/attacks/pages/`.
+  Configurable per user under `guard:` in `profile.yaml` (trusted sites, unknown-site
+  behaviour, extra uploads, which answers to confirm, on/off); `jobradar doctor` reports it.
+
+### Fixed (guard)
+- `jobradar guard scan-page` and the hook read stdin in the OS code page on Windows, which
+  would garble Arabic page text; both read UTF-8 bytes now.
+- Nested standing answers (`salary: {egypt: {current: ...}}`) were never matched by the
+  draft and typing checks; answers are now flattened before checking.
+
+- Input sanitisation (`jobradar/guard/sanitize.py`): HTML comments and CSS- or
+  attribute-hidden elements are cut out in `html_to_text` (and in the Go ingest worker,
+  `ingest.StripHidden`, with a shared parity fixture); invisible, Unicode tag and
+  direction-override characters, base64 text and NFKC are handled wherever posting text
+  enters a prompt. A1 attack success 0.73 -> 0.41, payload reach 0.74 -> 0.40, no clean
+  posting flagged.
+
+- Injection detector (`jobradar/guard/detect.py`, `rules.yaml`): English, MSA, Egyptian
+  Arabic and Franco-Arabic rules on normalised text plus sanitiser findings. Flagged postings
+  are quarantined before any LLM call, in lite and platform mode; `jobradar top` shows a
+  count, `jobradar guard quarantined` the reasons; `jobradar guard scan-page` checks a careers
+  page before the applier fills it. Held-out paraphrase corpus
+  (`evals/attacks/payloads_heldout.yaml`, `--corpus heldout`): A1 0.42 -> 0.32 there, 0.41 ->
+  0.00 on the templates the rules were written against; 0 of 52 clean postings flagged.
+
+- Quarantined extraction (`jobradar/guard/extract.py`, ADR 0005, opt-in
+  `scoring.extraction`): a tool-less model turns each posting into typed `JobFacts`; the
+  screening model reads facts (skills only from a fixed vocabulary), the writer adds a
+  detector-checked summary. Facts cached per job (SQLite `jobs.facts`, Postgres migration
+  `00002_job_facts.sql`). Worst case: screening-prompt payload reach 0.00 and held-out A1 0.00
+  even without the detector; tokens per job 3,610 -> 1,394.
+
+### Changed
+- WhatsApp drafts (and email drafts to a flagged address) are no longer sendable until you
+  approve each one with `jobradar approve <id>`.
+
+### Fixed
+- Dashboard: requests with a non-local `Host` header get 403 (DNS rebinding could read
+  `/api/snapshot` from any website); job links render only for http(s) URLs.
+- CI: the buf action no longer tries to comment on pull requests with a read-only token.
+
 ## [0.2.0] - 2026-11-20
 
 ### Added

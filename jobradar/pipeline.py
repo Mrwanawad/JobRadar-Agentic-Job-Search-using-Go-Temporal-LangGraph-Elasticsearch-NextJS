@@ -9,9 +9,12 @@ from dataclasses import dataclass, field
 
 import httpx
 
+from jobradar import guard
 from jobradar.ats import fetch_board
 from jobradar.config import Profile, load_companies
 from jobradar.db import DB
+from jobradar.guard import extract
+from jobradar.guard.detect import check_posting
 from jobradar.llm import LLMClient, LLMError
 from jobradar.models import Job
 from jobradar.prefilter import Prefilter
@@ -84,6 +87,7 @@ class ScoreStats:
     scored: int = 0
     errors: list[str] = field(default_factory=list)
     stopped: str = ""
+    quarantined: int = 0  # guard/detect.py flagged them; no LLM call spent
 
 
 def score_candidates(
@@ -100,8 +104,22 @@ def score_candidates(
     stats = ScoreStats()
     rows = db.by_status("candidate", order="kw_score DESC, posted_at DESC")[:limit]
     for row in rows:
+        verdict = check_posting(row)
+        if verdict.flagged:  # injected or hidden instructions: no model sees it
+            db.quarantine(row["uid"], verdict.reason())
+            stats.quarantined += 1
+            continue
         try:
-            score, result, by = score_job(llm, profile, cv, row)
+            facts = None
+            if profile.scoring.extraction and guard.enabled("extract"):
+                facts = extract.cached(row) or extract.extract(llm, row)
+                db.save_facts(row["uid"], facts.model_dump())
+                fv = extract.check(facts)
+                if fv.flagged:  # the extractor repeated an instruction
+                    db.quarantine(row["uid"], "facts " + fv.reason())
+                    stats.quarantined += 1
+                    continue
+            score, result, by = score_job(llm, profile, cv, row, facts)
         except LLMError as e:
             stats.stopped = str(e)  # every provider is out; retry next run
             break

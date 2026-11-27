@@ -145,7 +145,8 @@ def approve_draft(
 ) -> dict[str, Any]:
     """Approve or reject one draft (personal profiles only). Pass the run's workflow_id to
     signal a run that is still waiting for approvals; otherwise the decision is stored
-    directly. `edited_body` replaces the draft text. Only call after the user said yes."""
+    directly. `edited_body` replaces the draft text. Only call after the user said yes.
+    Drafts the guard held for review (status `review`) cannot be approved here."""
     return _call(
         "POST",
         f"/v1/outbox/{outbox_id}/decision",

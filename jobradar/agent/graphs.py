@@ -24,9 +24,11 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field, ValidationError
 
 from jobradar.config import Profile
+from jobradar.guard import output
+from jobradar.guard.extract import render
 from jobradar.llm import LLMResult, parse_json
 from jobradar.outreach import draft_messages, finish_draft
-from jobradar.score import MAX_DESC_CHARS, build_prompt, clamp
+from jobradar.score import MAX_DESC_CHARS, build_prompt, clamp, posting_text
 
 try:
     from opentelemetry import trace
@@ -138,10 +140,10 @@ def screening_graph(llm: LLM) -> Any:
 
 
 def screen(
-    llm: LLM, profile: Profile, cv: str, job: Mapping[str, Any]
+    llm: LLM, profile: Profile, cv: str, job: Mapping[str, Any], facts: Any = None
 ) -> tuple[float, dict[str, Any], str]:
     with _span("agent.screen"):
-        out = screening_graph(llm).invoke({"messages": build_prompt(profile, cv, job)})
+        out = screening_graph(llm).invoke({"messages": build_prompt(profile, cv, job, facts)})
     return out["score"], out["assessment"], out["by"]
 
 
@@ -204,7 +206,27 @@ def _chat_json(llm: LLM, messages: list[dict[str, str]]) -> dict[str, Any]:
     return data
 
 
-def writer_graph(llm: LLM, cv: str, job: Mapping[str, Any], channel: str) -> Any:
+def _policy(
+    profile: Profile | None, cv: str, job: Mapping[str, Any], channel: str, d: dict[str, Any]
+) -> list[str]:
+    """Output-policy violations of the finished draft (guard/output.py)."""
+    if profile is None:
+        return []
+    try:
+        subject, body = finish_draft(profile, job, channel, d)
+    except ValueError as e:
+        return [str(e)]
+    return output.check(f"{subject}\n{body}", channel, profile, cv, job)
+
+
+def writer_graph(
+    llm: LLM,
+    cv: str,
+    job: Mapping[str, Any],
+    channel: str,
+    profile: Profile | None = None,
+    facts: Any = None,
+) -> Any:
     def draft(s: WriteState) -> WriteState:
         with _span("write.draft"):
             return {"draft": _chat_json(llm, s["messages"])}
@@ -215,7 +237,11 @@ def writer_graph(llm: LLM, cv: str, job: Mapping[str, Any], channel: str) -> Any
             cv=cv,
             company=job["company"],
             title=job["title"],
-            description=(job["description"] or "")[: MAX_DESC_CHARS // 2],
+            description=(
+                render(facts, profile, for_writer=True)
+                if facts is not None and profile is not None
+                else posting_text(job)[: MAX_DESC_CHARS // 2]
+            ),
             channel=channel,
             subject=d.get("subject", ""),
             body=d.get("body", ""),
@@ -230,9 +256,10 @@ def writer_graph(llm: LLM, cv: str, job: Mapping[str, Any], channel: str) -> Any
                     ],
                 )
             )
-        out: WriteState = {"critique": c.model_dump()}
-        # A fabricating draft is never "best", however polished.
-        effective = c.score if not c.fabrications else -1.0
+        policy = _policy(profile, cv, job, channel, d)
+        out: WriteState = {"critique": {**c.model_dump(), "policy": policy}}
+        # A fabricating or policy-breaking draft is never "best", however polished.
+        effective = c.score if not (c.fabrications or policy) else -1.0
         if effective > s.get("best_score", -2.0):
             out["best"], out["best_score"] = d, effective
         return out
@@ -241,9 +268,11 @@ def writer_graph(llm: LLM, cv: str, job: Mapping[str, Any], channel: str) -> Any
         c = s["critique"]
         # Unsupported claims are deleted, not reworded: rewording tends to swap one
         # unsupported claim for another and the loop never converges.
-        notes = [
-            f"Delete this claim; the CV does not support it: {f}" for f in c["fabrications"]
-        ] + c["issues"]
+        notes = (
+            [f"Delete this claim; the CV does not support it: {f}" for f in c["fabrications"]]
+            + [f"Fix this; it breaks the output rules: {p}" for p in c.get("policy", [])]
+            + c["issues"]
+        )
         return {
             "messages": [
                 *s["messages"],
@@ -261,7 +290,7 @@ def writer_graph(llm: LLM, cv: str, job: Mapping[str, Any], channel: str) -> Any
 
     def route(s: WriteState) -> str:
         c = Critique.model_validate(s["critique"])
-        if c.passes or s.get("revisions", 0) >= MAX_REVISIONS:
+        if (c.passes and not s["critique"].get("policy")) or s.get("revisions", 0) >= MAX_REVISIONS:
             return END
         return "revise"
 
@@ -277,14 +306,21 @@ def writer_graph(llm: LLM, cv: str, job: Mapping[str, Any], channel: str) -> Any
 
 
 def write(
-    llm: LLM, profile: Profile, cv: str, job: Mapping[str, Any], channel: str
+    llm: LLM,
+    profile: Profile,
+    cv: str,
+    job: Mapping[str, Any],
+    channel: str,
+    facts: Any = None,
 ) -> tuple[str, str, dict[str, Any], int]:
     """(subject, body, final critique, revisions). Raises if every draft fabricated."""
     with _span("agent.write"):
-        out = writer_graph(llm, cv, job, channel).invoke(
-            {"messages": draft_messages(profile, cv, job, channel)}
+        out = writer_graph(llm, cv, job, channel, profile, facts).invoke(
+            {"messages": draft_messages(profile, cv, job, channel, facts)}
         )
     if out.get("best_score", -1.0) < 0:
-        raise ValueError("every draft contained claims the CV does not support")
+        raise ValueError(
+            "every draft contained claims the CV does not support or broke the output rules"
+        )
     subject, body = finish_draft(profile, job, channel, out["best"])
     return subject, body, out["critique"], out.get("revisions", 0)

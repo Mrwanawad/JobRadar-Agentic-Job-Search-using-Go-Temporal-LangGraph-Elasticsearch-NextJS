@@ -89,6 +89,7 @@ func HTMLToText(s string) string {
 		return ""
 	}
 	s = html.UnescapeString(s) // some feeds double-escape
+	s = StripHidden(s)         // comments and CSS-hidden text never reach a model
 	s = reBlock.ReplaceAllString(s, "\n")
 	s = html.UnescapeString(reTag.ReplaceAllString(s, ""))
 	s = reWS.ReplaceAllString(s, " ")

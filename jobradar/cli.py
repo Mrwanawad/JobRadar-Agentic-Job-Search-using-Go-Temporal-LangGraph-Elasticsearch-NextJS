@@ -15,6 +15,8 @@ from jobradar.outreach import draft_applications, sendable
 from jobradar.pipeline import fetch_all, prefilter_new, score_candidates
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
+guard_app = typer.Typer(no_args_is_help=True, help="Guardrails (docs/THREAT_MODEL.md)")
+app.add_typer(guard_app, name="guard")
 
 
 @app.callback()
@@ -244,7 +246,7 @@ def draft(limit: int = typer.Option(None, help="Max drafts (default from profile
 
 @app.command()
 def outbox(
-    status: str = typer.Option(None, help="draft | sent | failed | skipped"),
+    status: str = typer.Option(None, help="draft | review | approved | sent | failed | skipped"),
     channel: str = typer.Option(None, help="email | whatsapp | manual"),
     full: bool = typer.Option(False, help="Print message bodies"),
 ) -> None:
@@ -336,6 +338,21 @@ def dashboard(
 
 
 @app.command()
+def approve(outbox_id: int) -> None:
+    """Approve one held item (WhatsApp with the CV, or a recipient the guard flagged).
+    Only a person runs this: the sender and the agents never do."""
+    db = DB()
+    row = next((r for r in db.outbox() if r["id"] == outbox_id), None)
+    if row is None:
+        raise typer.Exit(f"no outbox item #{outbox_id}")
+    if not db.approve(outbox_id):
+        raise typer.Exit(
+            f"#{outbox_id} is {row['status']}; only draft or review items can be approved"
+        )
+    typer.echo(f"#{outbox_id} approved: {row['channel']} to {row['recipient']}")
+
+
+@app.command()
 def mark(
     outbox_id: int,
     status: str = typer.Argument(..., help="sent | failed | skipped | draft"),
@@ -370,6 +387,8 @@ def top(
             f"      - {'; '.join(res.get('red_flags', []))}"
         )
     typer.echo(f"{len(rows)} jobs. DB: {db.counts()}")
+    if q := len(db.by_status("quarantined")):
+        typer.echo(f"{q} postings quarantined (injected instructions): jobradar guard quarantined")
     if xlsx:
         _write_xlsx(db, rows, xlsx)
         typer.echo(f"wrote {xlsx}")
@@ -464,6 +483,50 @@ def publish_profile(
             (profile_id, prof.candidate.email, Jsonb(prof.model_dump(mode="json")), cv_text(prof)),
         )
     typer.echo(f"profile {profile_id!r} published; schedule it: jobradar schedule {profile_id}")
+
+
+@guard_app.command("hook")
+def guard_hook() -> None:
+    """PreToolUse hook for Claude in Chrome: reads the tool call JSON on stdin (see
+    plugin/hooks/hooks.json, which calls `python -m jobradar.guard.hook` directly)."""
+    from jobradar.guard.hook import main
+
+    raise typer.Exit(main())
+
+
+@guard_app.command("scan-page")
+def guard_scan_page(url: str = typer.Option("", help="Page URL, for the record")) -> None:
+    """Read a careers page's text on stdin (Claude in Chrome get_page_text) and say whether it
+    talks to an AI. Exit 0 clean, 3 suspicious or malicious: stop and hand the tab back."""
+    from jobradar.guard.detect import check_page
+
+    v = check_page(
+        sys.stdin.buffer.read().decode("utf-8", errors="replace")
+    )  # not the OS code page
+    typer.echo(json.dumps({"url": url, "verdict": v.label, "hits": v.hits}))
+    raise typer.Exit(3 if v.flagged else 0)
+
+
+@guard_app.command("quarantined")
+def guard_quarantined(limit: int = typer.Option(50, help="How many")) -> None:
+    """Postings the detector kept away from every model, with the reason."""
+    rows = DB().by_status("quarantined")[:limit]
+    for r in rows:
+        typer.echo(f"{r['company']} - {r['title']}\n      {r['filter_reason']}\n      {r['url']}")
+    typer.echo(f"{len(rows)} quarantined")
+
+
+@guard_app.command("audit")
+def guard_audit(limit: int = typer.Option(20, help="How many recent decisions")) -> None:
+    """Recent applier guard decisions that were not plain allows."""
+    path = ROOT / "data" / "guard_audit.jsonl"
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    rows = [json.loads(x) for x in lines if x.strip()]
+    rows = [r for r in rows if r["decision"] != "allow"][-limit:]
+    for r in rows:
+        tool = r["tool"].rsplit("__", 1)[-1]
+        typer.echo(f"{r['ts']}  {r['decision']:<5} {tool:<16} {'; '.join(r['reasons'])}")
+    typer.echo(f"{len(rows)} blocked or asked")
 
 
 if __name__ == "__main__":

@@ -109,7 +109,17 @@ demo visitor's data with one `DELETE FROM profiles`.
 3. **Hybrid search**: one BM25 query and one kNN query with the CV, fused client side with
    Reciprocal Rank Fusion (k = 60). See [ADR 0003](adr/0003-client-side-rrf.md).
 4. **Screening agent** reads the top matches and returns a typed `Assessment`: score, role
-   fit, seniority fit, location fit, visa sponsorship, reasons, red flags, pitch angle.
+   fit, seniority fit, location fit, visa sponsorship, reasons, red flags, pitch angle. With
+   `scoring.extraction` on, it reads typed `JobFacts` from a quarantined extractor instead of
+   the posting text ([ADR 0005](adr/0005-quarantined-extraction-for-untrusted-postings.md)).
+
+## Guardrails
+
+Postings are untrusted input; `jobradar/guard/` sits between them and anything that decides
+or acts: sanitisation at ingest and at every prompt, recipient and output policy on drafts,
+and a PreToolUse hook on the Claude in Chrome applier. See
+[THREAT_MODEL.md](THREAT_MODEL.md) and the measured results in [EVALS.md](EVALS.md)
+(Layer 3).
 
 ## Agents (LangGraph)
 

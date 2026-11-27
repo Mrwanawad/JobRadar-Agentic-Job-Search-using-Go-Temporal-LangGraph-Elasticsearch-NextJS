@@ -19,11 +19,14 @@ from typing import Any
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
+from jobradar import guard
 from jobradar.agent import graphs
 from jobradar.agent.search import JobIndex
 from jobradar.agent.store import AgentStore
+from jobradar.guard import extract
+from jobradar.guard.detect import check_posting
 from jobradar.llm import CAPTURE_CONTENT, LLMClient, LLMError, LLMResult
-from jobradar.outreach import channel_for
+from jobradar.outreach import route
 from jobradar.prefilter import Prefilter
 from jobradar.v1 import radar_pb2 as pb
 
@@ -133,8 +136,24 @@ class Agent:
     def score_job(self, inp: pb.ScoreJobInput) -> pb.ScoreJobResult:
         sp = self.store.profile(inp.profile_id)
         job = self.store.job(inp.job_uid)
+        verdict = check_posting(job)
+        if verdict.flagged:  # injected or hidden instructions: no model sees it, never drafted
+            data = {"quarantined": verdict.label, "guard": verdict.hits, "reasons": [],
+                    "red_flags": [verdict.reason()]}  # fmt: skip
+            self.store.save_score(inp.profile_id, inp.job_uid, 0.0, data, "guard")
+            return pb.ScoreJobResult(job_uid=inp.job_uid, score=0.0, scored_by="guard")
         with _heartbeating(), _content_policy(sp.kind):
-            score, data, by = graphs.screen(self.llm, sp.profile, sp.cv_text, job)
+            facts = None
+            if sp.profile.scoring.extraction and guard.enabled("extract"):
+                facts = extract.cached(job) or extract.extract(self.llm, job)
+                self.store.save_facts(inp.job_uid, facts.model_dump())
+                fv = extract.check(facts)
+                if fv.flagged:
+                    data = {"quarantined": fv.label, "guard": fv.hits, "reasons": [],
+                            "red_flags": ["facts " + fv.reason()]}  # fmt: skip
+                    self.store.save_score(inp.profile_id, inp.job_uid, 0.0, data, "guard")
+                    return pb.ScoreJobResult(job_uid=inp.job_uid, score=0.0, scored_by="guard")
+            score, data, by = graphs.screen(self.llm, sp.profile, sp.cv_text, job, facts)
         self.store.save_score(inp.profile_id, inp.job_uid, score, data, by)
         return pb.ScoreJobResult(job_uid=inp.job_uid, score=score, scored_by=by)
 
@@ -142,18 +161,30 @@ class Agent:
     def draft_application(self, inp: pb.DraftApplicationInput) -> pb.DraftApplicationResult:
         sp = self.store.profile(inp.profile_id)
         job = self.store.job_with_assessment(inp.profile_id, inp.job_uid)
-        channel, recipient = channel_for(job)
+        r = route(job)
+        channel, recipient, status = r.channel, r.recipient, r.status
         if sp.kind == "demo":
-            channel, recipient = "manual", job["apply_url"] or job["url"]  # never sent
+            channel, recipient, status = "manual", job["apply_url"] or job["url"], "draft"
         with _heartbeating(), _content_policy(sp.kind):
             try:
                 subject, body, critique, revisions = graphs.write(
-                    self.llm, sp.profile, sp.cv_text, job, channel
+                    self.llm, sp.profile, sp.cv_text, job, channel, extract.cached(job)
                 )
             except ValueError as e:  # fabricated every time: not worth retrying
                 raise ApplicationError(str(e), type="DraftRejected", non_retryable=True) from e
+        # A held draft is stored as `review`; the gateway only approves `draft` rows, so
+        # nothing reached over the API or MCP can approve it.
+        critique = {**critique, "guard": r.reasons}
         oid = self.store.save_draft(
-            inp.profile_id, inp.job_uid, channel, recipient, subject, body, critique, revisions
+            inp.profile_id,
+            inp.job_uid,
+            channel,
+            recipient,
+            subject,
+            body,
+            critique,
+            revisions,
+            status=status,
         )
         return pb.DraftApplicationResult(
             outbox_id=oid, channel=channel, critique_score=critique["score"], revisions=revisions

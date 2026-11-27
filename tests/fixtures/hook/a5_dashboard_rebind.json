@@ -1,0 +1,13 @@
+{
+ "event": {
+  "session_id": "recorded",
+  "hook_event_name": "PreToolUse",
+  "tool_use_id": "toolu_x",
+  "tool_name": "mcp__claude-in-chrome__navigate",
+  "tool_input": {
+   "url": "http://127.0.0.1:8765/api/snapshot",
+   "tabId": 101
+  }
+ },
+ "expect": "deny"
+}
