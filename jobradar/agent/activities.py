@@ -23,7 +23,7 @@ from jobradar.agent import graphs
 from jobradar.agent.search import JobIndex
 from jobradar.agent.store import AgentStore
 from jobradar.llm import CAPTURE_CONTENT, LLMClient, LLMError, LLMResult
-from jobradar.outreach import channel_for
+from jobradar.outreach import route
 from jobradar.prefilter import Prefilter
 from jobradar.v1 import radar_pb2 as pb
 
@@ -142,9 +142,10 @@ class Agent:
     def draft_application(self, inp: pb.DraftApplicationInput) -> pb.DraftApplicationResult:
         sp = self.store.profile(inp.profile_id)
         job = self.store.job_with_assessment(inp.profile_id, inp.job_uid)
-        channel, recipient = channel_for(job)
+        r = route(job)
+        channel, recipient, status = r.channel, r.recipient, r.status
         if sp.kind == "demo":
-            channel, recipient = "manual", job["apply_url"] or job["url"]  # never sent
+            channel, recipient, status = "manual", job["apply_url"] or job["url"], "draft"
         with _heartbeating(), _content_policy(sp.kind):
             try:
                 subject, body, critique, revisions = graphs.write(
@@ -152,8 +153,19 @@ class Agent:
                 )
             except ValueError as e:  # fabricated every time: not worth retrying
                 raise ApplicationError(str(e), type="DraftRejected", non_retryable=True) from e
+        # A held draft is stored as `review`; the gateway only approves `draft` rows, so
+        # nothing reached over the API or MCP can approve it.
+        critique = {**critique, "guard": r.reasons}
         oid = self.store.save_draft(
-            inp.profile_id, inp.job_uid, channel, recipient, subject, body, critique, revisions
+            inp.profile_id,
+            inp.job_uid,
+            channel,
+            recipient,
+            subject,
+            body,
+            critique,
+            revisions,
+            status=status,
         )
         return pb.DraftApplicationResult(
             outbox_id=oid, channel=channel, critique_score=critique["score"], revisions=revisions

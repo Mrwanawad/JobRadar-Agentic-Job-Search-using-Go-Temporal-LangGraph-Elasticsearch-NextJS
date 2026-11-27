@@ -244,7 +244,7 @@ def draft(limit: int = typer.Option(None, help="Max drafts (default from profile
 
 @app.command()
 def outbox(
-    status: str = typer.Option(None, help="draft | sent | failed | skipped"),
+    status: str = typer.Option(None, help="draft | review | approved | sent | failed | skipped"),
     channel: str = typer.Option(None, help="email | whatsapp | manual"),
     full: bool = typer.Option(False, help="Print message bodies"),
 ) -> None:
@@ -333,6 +333,21 @@ def dashboard(
         pass
     finally:
         server.server_close()
+
+
+@app.command()
+def approve(outbox_id: int) -> None:
+    """Approve one held item (WhatsApp with the CV, or a recipient the guard flagged).
+    Only a person runs this: the sender and the agents never do."""
+    db = DB()
+    row = next((r for r in db.outbox() if r["id"] == outbox_id), None)
+    if row is None:
+        raise typer.Exit(f"no outbox item #{outbox_id}")
+    if not db.approve(outbox_id):
+        raise typer.Exit(
+            f"#{outbox_id} is {row['status']}; only draft or review items can be approved"
+        )
+    typer.echo(f"#{outbox_id} approved: {row['channel']} to {row['recipient']}")
 
 
 @app.command()

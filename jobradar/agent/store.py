@@ -163,18 +163,30 @@ class AgentStore:
         body: str,
         critique: dict[str, Any],
         revisions: int,
+        status: str = "draft",
     ) -> int:
         with self.pool.connection() as c:
             row = c.execute(
                 """INSERT INTO outbox (profile_id, job_uid, channel, recipient, subject, body,
-                                       critique, revisions)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                       critique, revisions, status)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT (profile_id, job_uid) DO UPDATE SET
                        body = EXCLUDED.body, subject = EXCLUDED.subject,
-                       critique = EXCLUDED.critique, revisions = EXCLUDED.revisions
-                   WHERE outbox.status = 'draft'
+                       critique = EXCLUDED.critique, revisions = EXCLUDED.revisions,
+                       status = EXCLUDED.status
+                   WHERE outbox.status IN ('draft', 'review')
                    RETURNING id""",
-                (profile_id, uid, channel, recipient, subject, body, Jsonb(critique), revisions),
+                (
+                    profile_id,
+                    uid,
+                    channel,
+                    recipient,
+                    subject,
+                    body,
+                    Jsonb(critique),
+                    revisions,
+                    status,
+                ),
             ).fetchone()
             if row is None:  # already decided by the human: leave it alone
                 row = c.execute(

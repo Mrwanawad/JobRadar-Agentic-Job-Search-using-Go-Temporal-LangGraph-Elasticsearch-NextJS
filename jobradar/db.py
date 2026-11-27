@@ -100,10 +100,13 @@ class DB:
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
         # Where the posting was discovered (LinkedIn post, Wuzzuf...), separate from how we applied.
-        for table in ("outbox", "processes"):
+        # guard: why an item is held for review; approved_at: when a person approved it.
+        added = {"outbox": ("found_on", "guard", "approved_at"), "processes": ("found_on",)}
+        for table, wanted in added.items():
             cols = {r["name"] for r in self.conn.execute(f"PRAGMA table_info({table})")}
-            if "found_on" not in cols:
-                self.conn.execute(f"ALTER TABLE {table} ADD COLUMN found_on TEXT")
+            for col in wanted:
+                if col not in cols:
+                    self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} TEXT")
 
     def upsert_jobs(self, jobs: list[Job]) -> int:
         """Insert unseen jobs; return how many were new. Seen jobs are left untouched."""
@@ -191,14 +194,41 @@ class DB:
             (min_score,),
         ).fetchall()
 
-    def add_draft(self, uid: str, channel: str, recipient: str, subject: str, body: str) -> int:
+    def add_draft(
+        self,
+        uid: str,
+        channel: str,
+        recipient: str,
+        subject: str,
+        body: str,
+        status: str = "draft",
+        reasons: list[str] | None = None,
+    ) -> int:
         cur = self.conn.execute(
-            "INSERT INTO outbox (uid, channel, recipient, subject, body, created_at) "
-            "VALUES (?,?,?,?,?,?)",
-            (uid, channel, recipient, subject, body, now()),
+            "INSERT INTO outbox (uid, channel, recipient, subject, body, status, guard, "
+            "created_at) VALUES (?,?,?,?,?,?,?,?)",
+            (uid, channel, recipient, subject, body, status, "; ".join(reasons or []), now()),
         )
         self.conn.commit()
         return cur.lastrowid or 0
+
+    def hold(self, outbox_id: int, reasons: list[str]) -> None:
+        """Move a draft to `review`: it goes out only after `approve()`."""
+        self.conn.execute(
+            "UPDATE outbox SET status='review', guard=? WHERE id=? AND status='draft'",
+            ("; ".join(reasons), outbox_id),
+        )
+        self.conn.commit()
+
+    def approve(self, outbox_id: int) -> bool:
+        """A person's explicit yes for one item (the only way to `approved`)."""
+        cur = self.conn.execute(
+            "UPDATE outbox SET status='approved', approved_at=? "
+            "WHERE id=? AND status IN ('draft', 'review')",
+            (now(), outbox_id),
+        )
+        self.conn.commit()
+        return cur.rowcount == 1
 
     def outbox(self, status: str | None = None, channel: str | None = None) -> list[sqlite3.Row]:
         where, args = [], []
@@ -209,7 +239,7 @@ class DB:
             where.append("o.channel = ?")
             args.append(channel)
         sql = (
-            "SELECT o.*, j.company, j.title, j.url, j.apply_url, j.llm_score "
+            "SELECT o.*, j.company, j.title, j.url, j.apply_url, j.llm_score, j.description "
             "FROM outbox o JOIN jobs j ON j.uid = o.uid"
             + (" WHERE " + " AND ".join(where) if where else "")
             + " ORDER BY j.llm_score DESC, o.id"

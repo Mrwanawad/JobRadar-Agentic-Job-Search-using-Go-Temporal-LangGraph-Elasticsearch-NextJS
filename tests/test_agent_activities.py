@@ -12,6 +12,7 @@ pytest.importorskip("temporalio")
 from temporalio.exceptions import ApplicationError  # noqa: E402
 from temporalio.testing import ActivityEnvironment  # noqa: E402
 
+from jobradar import guard  # noqa: E402
 from jobradar.agent.activities import QUOTA_EXHAUSTED, Agent  # noqa: E402
 from jobradar.agent.profiles import DemoForm, demo_profile  # noqa: E402
 from jobradar.agent.search import rrf  # noqa: E402
@@ -20,6 +21,14 @@ from jobradar.llm import LLMError, LLMResult  # noqa: E402
 from jobradar.v1 import radar_pb2 as pb  # noqa: E402
 
 NOW = datetime.now(UTC)
+
+
+@pytest.fixture(autouse=True)
+def _no_output_policy():
+    """These tests drive the graph mechanics with tiny scripted drafts; the output policy has
+    its own tests (tests/test_guard.py) and one graph test below."""
+    with guard.disabled("output"):
+        yield
 
 
 def job(uid: str, title: str, location: str = "Remote", fp: str | None = None) -> dict:
@@ -76,7 +85,7 @@ class FakeStore:
     def save_score(self, pid, uid, score, data, by):  # noqa: ANN001
         self.scores[uid] = score
 
-    def save_draft(self, *args):  # noqa: ANN002
+    def save_draft(self, *args, **kw):  # noqa: ANN002, ANN003
         self.drafts.append(args)
         return 42
 

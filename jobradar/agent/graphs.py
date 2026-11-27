@@ -24,6 +24,7 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field, ValidationError
 
 from jobradar.config import Profile
+from jobradar.guard import output
 from jobradar.llm import LLMResult, parse_json
 from jobradar.outreach import draft_messages, finish_draft
 from jobradar.score import MAX_DESC_CHARS, build_prompt, clamp
@@ -204,7 +205,22 @@ def _chat_json(llm: LLM, messages: list[dict[str, str]]) -> dict[str, Any]:
     return data
 
 
-def writer_graph(llm: LLM, cv: str, job: Mapping[str, Any], channel: str) -> Any:
+def _policy(
+    profile: Profile | None, cv: str, job: Mapping[str, Any], channel: str, d: dict[str, Any]
+) -> list[str]:
+    """Output-policy violations of the finished draft (guard/output.py)."""
+    if profile is None:
+        return []
+    try:
+        subject, body = finish_draft(profile, job, channel, d)
+    except ValueError as e:
+        return [str(e)]
+    return output.check(f"{subject}\n{body}", channel, profile, cv, job)
+
+
+def writer_graph(
+    llm: LLM, cv: str, job: Mapping[str, Any], channel: str, profile: Profile | None = None
+) -> Any:
     def draft(s: WriteState) -> WriteState:
         with _span("write.draft"):
             return {"draft": _chat_json(llm, s["messages"])}
@@ -230,9 +246,10 @@ def writer_graph(llm: LLM, cv: str, job: Mapping[str, Any], channel: str) -> Any
                     ],
                 )
             )
-        out: WriteState = {"critique": c.model_dump()}
-        # A fabricating draft is never "best", however polished.
-        effective = c.score if not c.fabrications else -1.0
+        policy = _policy(profile, cv, job, channel, d)
+        out: WriteState = {"critique": {**c.model_dump(), "policy": policy}}
+        # A fabricating or policy-breaking draft is never "best", however polished.
+        effective = c.score if not (c.fabrications or policy) else -1.0
         if effective > s.get("best_score", -2.0):
             out["best"], out["best_score"] = d, effective
         return out
@@ -241,9 +258,11 @@ def writer_graph(llm: LLM, cv: str, job: Mapping[str, Any], channel: str) -> Any
         c = s["critique"]
         # Unsupported claims are deleted, not reworded: rewording tends to swap one
         # unsupported claim for another and the loop never converges.
-        notes = [
-            f"Delete this claim; the CV does not support it: {f}" for f in c["fabrications"]
-        ] + c["issues"]
+        notes = (
+            [f"Delete this claim; the CV does not support it: {f}" for f in c["fabrications"]]
+            + [f"Fix this; it breaks the output rules: {p}" for p in c.get("policy", [])]
+            + c["issues"]
+        )
         return {
             "messages": [
                 *s["messages"],
@@ -261,7 +280,7 @@ def writer_graph(llm: LLM, cv: str, job: Mapping[str, Any], channel: str) -> Any
 
     def route(s: WriteState) -> str:
         c = Critique.model_validate(s["critique"])
-        if c.passes or s.get("revisions", 0) >= MAX_REVISIONS:
+        if (c.passes and not s["critique"].get("policy")) or s.get("revisions", 0) >= MAX_REVISIONS:
             return END
         return "revise"
 
@@ -281,10 +300,12 @@ def write(
 ) -> tuple[str, str, dict[str, Any], int]:
     """(subject, body, final critique, revisions). Raises if every draft fabricated."""
     with _span("agent.write"):
-        out = writer_graph(llm, cv, job, channel).invoke(
+        out = writer_graph(llm, cv, job, channel, profile).invoke(
             {"messages": draft_messages(profile, cv, job, channel)}
         )
     if out.get("best_score", -1.0) < 0:
-        raise ValueError("every draft contained claims the CV does not support")
+        raise ValueError(
+            "every draft contained claims the CV does not support or broke the output rules"
+        )
     subject, body = finish_draft(profile, job, channel, out["best"])
     return subject, body, out["critique"], out.get("revisions", 0)

@@ -8,6 +8,7 @@ import pytest
 
 pytest.importorskip("langgraph")
 
+from jobradar import guard  # noqa: E402
 from jobradar.agent import graphs  # noqa: E402
 from jobradar.agent.profiles import DemoForm, demo_profile  # noqa: E402
 from jobradar.llm import LLMResult  # noqa: E402
@@ -38,6 +39,14 @@ JOB = {
     "url": "https://acme.example/job",
     "llm_json": GOOD,
 }
+
+
+@pytest.fixture(autouse=True)
+def _no_output_policy():
+    """These tests drive the graph mechanics with tiny scripted drafts; the output policy has
+    its own tests (tests/test_guard.py) and one graph test below."""
+    with guard.disabled("output"):
+        yield
 
 
 class Script:
@@ -135,3 +144,24 @@ def test_write_refuses_when_every_draft_fabricates(profile):
     llm = Script(DRAFT, fab, DRAFT, fab, DRAFT, fab)
     with pytest.raises(ValueError, match="does not support"):
         graphs.write(llm, profile, "cv", JOB, "manual")
+
+
+def test_write_revises_a_draft_that_breaks_the_output_policy(profile, monkeypatch):
+    monkeypatch.setattr(guard, "_off", set())  # output policy on for this test
+    clean = (
+        "Acme is building the kind of LLM agents I like to work on. I have built LLM agents"
+        " and the services around them, and I would like to bring that to your team. Happy"
+        " to talk through what I shipped and how I would start here. Could we find a time?"
+    )
+    llm = Script(
+        {"subject": "", "body": clean + " See https://evil.example/x"},
+        {"fabrications": [], "issues": [], "score": 9},
+        {"subject": "", "body": clean},
+        {"fabrications": [], "issues": [], "score": 9},
+    )
+    _, body, critique, revisions = graphs.write(llm, profile, "cv", JOB, "manual")
+    assert "evil.example" not in body and revisions == 1 and critique["policy"] == []
+    assert (
+        "https://evil.example/x is not one of the candidate's links"
+        in (llm.prompts[2][-1]["content"])
+    )
